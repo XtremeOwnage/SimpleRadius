@@ -195,6 +195,94 @@ see [authentication.md](authentication.md).
 
 ---
 
+## Connecting a MikroTik router (RouterOS CLI)
+
+This configures a MikroTik as a RADIUS **client** of SimpleRadius — it does not run SimpleRadius, which is
+a .NET service, not a RouterOS package. Commands are RouterOS 7; note the version caveats where they
+apply. Replace `192.0.2.10` with the SimpleRadius host and `SR-SECRET` with the shared secret.
+
+First add the router under **NAS** in the SimpleRadius UI, using the source IP its RADIUS packets arrive
+from, with the same secret. Requests from any other address are dropped.
+
+### 1. Point RouterOS at SimpleRadius
+
+```routeros
+/radius
+add service=wireless,dot1x address=192.0.2.10 secret="SR-SECRET" timeout=2s
+```
+
+Include only the services you use (`wireless`, `dot1x`, `dhcp`, `hotspot`, `login`, `ppp`, `ipsec`).
+
+SimpleRadius identifies a NAS by the **source address** of its packets. If the router has several
+interfaces, pin the one SimpleRadius knows so it is not identified by the wrong address:
+
+```routeros
+/radius set [find address=192.0.2.10] src-address=192.0.2.1
+```
+
+RADIUS accounting is sent automatically for a service once its RADIUS server is set, which is what
+populates the Sessions page. SimpleRadius does not send CoA / Disconnect-Message, so there is no need to
+enable `/radius incoming`.
+
+### 2a. Wired MAC authentication (802.1X server)
+
+For switch ports, RouterOS 7's dot1x server can authenticate by MAC:
+
+```routeros
+/interface dot1x server
+add interface=ether2 auth-types=mac-auth \
+    radius-mac-format=XX:XX:XX:XX:XX:XX \
+    accounting=yes interim-update=5m
+```
+
+The MAC format here is cosmetic: SimpleRadius normalises every spelling before lookup, so any
+`radius-mac-format` matches. Add `dot1x` to `auth-types` if you also want certificate-based supplicants.
+
+### 2b. Wireless MAC authentication
+
+On the legacy `wireless` package (RouterOS 6, or 7 without wifiwave2):
+
+```routeros
+/interface wireless security-profiles
+add name=sr-mac mode=none \
+    radius-mac-authentication=yes \
+    radius-mac-mode=as-username \
+    radius-mac-format=XX:XX:XX:XX:XX:XX
+/interface wireless
+set wlan1 security-profile=sr-mac vlan-mode=use-tag
+```
+
+The newer `wifi` (wifiwave2) package configures RADIUS MAC auth differently and by RouterOS version;
+check the MikroTik documentation for your exact build. Either way, the `/radius` entry above is unchanged.
+
+### 3. Let the RADIUS reply set the VLAN
+
+SimpleRadius returns the VLAN in the RFC 2868 tunnel group — `Tunnel-Type = 13`,
+`Tunnel-Medium-Type = 6`, `Tunnel-Private-Group-Id = <vlan>` — which is exactly what RouterOS reads. For
+the router to act on it, the port or interface must be a member of a bridge with VLAN filtering on:
+
+```routeros
+/interface bridge
+set bridge1 vlan-filtering=yes
+```
+
+With that, an accepted device is placed on the VLAN from the reply; an untagged tunnel tag is available on
+the SimpleRadius **Settings** page for the rare firmware that rejects a tag.
+
+### 4. Verify
+
+```routeros
+/radius monitor 0            ;# live request/accept/reject counters
+/log print where topics~"radius"
+```
+
+A device that connects should appear under **Clients** in SimpleRadius, and its session under
+**Sessions**. If nothing arrives, work through the checklist in
+[logging.md](logging.md#debugging-a-device-that-will-not-connect) — the most common cause is a source
+address that does not match the NAS entry.
+
+---
+
 ## Upgrading
 
 1. Read the [changelog](../CHANGELOG.md).
