@@ -1,0 +1,12 @@
+@page
+@model SimpleRadius.Pages.Account.LogoutModel
+@{
+    ViewData["Title"] = "Sign out";
+}
+
+<h2>Sign out</h2>
+<form method="post">
+    <p>You are about to sign out of SimpleRadius.</p>
+    <button type="submit" class="btn btn-primary">Sign out</button>
+    <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
+</form>
