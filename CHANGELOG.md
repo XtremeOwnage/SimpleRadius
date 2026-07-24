@@ -13,6 +13,13 @@ All notable changes are recorded here. The format follows
 - Accounting sessions now show the **connected device's name** (from the client record) alongside the
   MAC, on both the active/history tables and the per-client usage rollup. Session search matches the
   name too.
+- **VLAN groups**: an optional group label (e.g. LAN, IOT) with a grouped view on the VLANs page, and a
+  new sortable Group column in the flat view.
+- **Import / export** of the configuration — VLANs, clients, network access servers and settings — as
+  JSON or YAML, on a new Backup page. Import is an upsert keyed on VLAN number, client identity and NAS
+  address, so a file both restores onto an empty instance and merges into a populated one; server
+  settings are only applied when explicitly requested. The format is human-editable, so a configuration
+  can be hand-written or templated.
 
 ### Changed
 
