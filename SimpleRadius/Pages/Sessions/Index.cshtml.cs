@@ -48,6 +48,9 @@ public class IndexModel : PageModel
 
     public MacAddressFormat MacFormat { get; private set; } = MacAddressFormat.ColonLower;
 
+    /// <summary>Identity (MAC) to friendly name, for the clients that have one.</summary>
+    public Dictionary<string, string> ClientNames { get; private set; } = [];
+
     public TableSort Sort { get; private set; } = new(null, true, "updated");
 
     public bool Truncated { get; private set; }
@@ -101,6 +104,19 @@ public class IndexModel : PageModel
         TopClients = usage
             .Select(u => new ClientUsage(u.ClientName, u.Sessions, u.Active, u.BytesIn, u.BytesOut, u.Seconds))
             .ToList();
+
+        // Resolve the friendly name for everything on screen in one query. Accounting rows only carry the
+        // identity (MAC); the readable name lives on the client record.
+        var names = Active.Select(s => s.ClientName)
+            .Concat(Closed.Select(s => s.ClientName))
+            .Concat(TopClients.Select(t => t.ClientName))
+            .Distinct()
+            .ToList();
+
+        ClientNames = await _db.ClientDevices
+            .AsNoTracking()
+            .Where(c => names.Contains(c.Name) && c.Description != null && c.Description != "")
+            .ToDictionaryAsync(c => c.Name, c => c.Description!);
     }
 
     public async Task<IActionResult> OnPostClearHistoryAsync()
@@ -126,6 +142,8 @@ public class IndexModel : PageModel
         return query.Where(s =>
             EF.Functions.Like(s.ClientName, pattern)
             || EF.Functions.Like(s.ClientName.Replace(":", ""), barePattern)
+            // The friendly name lives on the client record; the nav becomes a LEFT JOIN in the query.
+            || (s.ClientDevice != null && s.ClientDevice.Description != null && EF.Functions.Like(s.ClientDevice.Description, pattern))
             || EF.Functions.Like(s.NasName, pattern)
             || EF.Functions.Like(s.NasIpAddress, pattern)
             || EF.Functions.Like(s.SessionId, pattern)
@@ -152,6 +170,15 @@ public class IndexModel : PageModel
     }
 
     public string FormatClient(string clientName) => MacAddress.Format(clientName, MacFormat);
+
+    /// <summary>The friendly name if the client has one, otherwise the formatted identity.</summary>
+    public string DisplayName(string clientName) =>
+        ClientNames.TryGetValue(clientName, out var name) && !string.IsNullOrWhiteSpace(name)
+            ? name
+            : FormatClient(clientName);
+
+    /// <summary>True when a friendly name exists, so the identity can be shown as a secondary line.</summary>
+    public bool HasFriendlyName(string clientName) => ClientNames.ContainsKey(clientName);
 
     public static string FormatBytes(long bytes)
     {

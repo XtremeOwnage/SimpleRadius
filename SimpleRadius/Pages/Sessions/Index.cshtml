@@ -31,7 +31,17 @@
                 @foreach (var session in sessions)
                 {
                     <tr>
-                        <td><code>@Model.FormatClient(session.ClientName)</code></td>
+                        <td>
+                            @if (Model.HasFriendlyName(session.ClientName))
+                            {
+                                <div>@Model.DisplayName(session.ClientName)</div>
+                                <code class="small text-muted">@Model.FormatClient(session.ClientName)</code>
+                            }
+                            else
+                            {
+                                <code>@Model.FormatClient(session.ClientName)</code>
+                            }
+                        </td>
                         <td>@session.NasName</td>
                         <td>@(session.VlanId?.ToString() ?? "—")</td>
                         <td class="small text-muted">@session.StartTime.ToString("u")</td>
@@ -126,7 +136,17 @@
                 @foreach (var usage in Model.TopClients)
                 {
                     <tr>
-                        <td><code>@Model.FormatClient(usage.ClientName)</code></td>
+                        <td>
+                            @if (Model.HasFriendlyName(usage.ClientName))
+                            {
+                                <div>@Model.DisplayName(usage.ClientName)</div>
+                                <code class="small text-muted">@Model.FormatClient(usage.ClientName)</code>
+                            }
+                            else
+                            {
+                                <code>@Model.FormatClient(usage.ClientName)</code>
+                            }
+                        </td>
                         <td class="text-end">@usage.Sessions</td>
                         <td class="text-end">@usage.ActiveSessions</td>
                         <td class="text-end">@Bytes(usage.BytesIn)</td>
