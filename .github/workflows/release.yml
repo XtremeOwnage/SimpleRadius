@@ -291,13 +291,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
+      # actions/download-artifact occasionally times out against the blob backend after its own retries,
+      # which fails the whole release even though every artifact built fine. gh run download in an explicit
+      # retry loop is resilient to that transient failure; it lays each artifact in its own subdirectory,
+      # so the release action globs recursively below.
+      - name: Download release artifacts (with retry)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            rm -rf artifacts && mkdir -p artifacts
+            if gh run download "${GITHUB_RUN_ID}" --dir artifacts; then
+              echo "Downloaded on attempt ${attempt}."
+              break
+            fi
+            if [ "${attempt}" -eq 5 ]; then
+              echo "::error::Could not download build artifacts after 5 attempts."
+              exit 1
+            fi
+            echo "Attempt ${attempt} failed; retrying in $((attempt * 15))s"
+            sleep $((attempt * 15))
+          done
 
       - name: List what is being released
-        run: ls -lh artifacts
+        run: find artifacts -type f | sort
 
       - uses: softprops/action-gh-release@v2
         with:
@@ -305,7 +322,7 @@ jobs:
           tag_name: v${{ needs.version.outputs.version }}
           prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
           generate_release_notes: true
-          files: artifacts/*
+          files: artifacts/**/*
           body: |
             ## Container
 
