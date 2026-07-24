@@ -26,6 +26,9 @@ public static class DatabaseInitializer
         // Write-ahead logging keeps the admin UI readable while the listener is writing accounting rows.
         await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;", cancellationToken);
 
+        // Bring a database created by an older build up to date before anything queries the new columns.
+        await SchemaUpgrader.ApplyAsync(db, logger, cancellationToken);
+
         // appsettings only seeds these on first run; after that the settings page owns them.
         var settingsService = scope.ServiceProvider.GetRequiredService<SettingsService>();
         var settings = await settingsService.GetAsync(startup.Seed, cancellationToken);
