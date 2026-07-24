@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="SimpleRadius.Tests/SimpleRadius.Tests.csproj" />
+  <Project Path="SimpleRadius/SimpleRadius.csproj" />
+</Solution>

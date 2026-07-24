@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <UserSecretsId>simpleradius-dev</UserSecretsId>
+    <!--
+      Trimming and Native AOT are unavailable here: Razor Pages and EF Core both declare themselves
+      incompatible, and the compiler emits IL2026 for each. Size comes instead from publishing per-RID
+      (see below) and from not shipping development-only web assets.
+    -->
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <!-- Pinned ahead of the version EF Core resolves, which carries GHSA-2m69-gcr7-jv3q. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.10" />
+    <!-- Enables Type=notify and journald-formatted logs when running under systemd. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.0" />
+  </ItemGroup>
+
+  <!--
+    The SQLite bundle ships native binaries for every platform it supports - riscv64, mips64, s390x,
+    iOS simulator and more - which is 84 MB of a 103 MB publish. A RID-specific publish keeps only the
+    matching one. Always publish with -r; this target fails the build loudly if someone forgets.
+  -->
+  <Target Name="WarnIfPublishingWithoutRid" BeforeTargets="Publish" Condition="'$(RuntimeIdentifier)' == ''">
+    <Warning Text="Publishing without a RuntimeIdentifier bundles native SQLite for every platform (~84 MB of waste). Use: dotnet publish -r linux-x64 --self-contained false" />
+  </Target>
+
+  <!-- The static library is a build-time artifact of the native bundle; only the shared object is loaded. -->
+  <Target Name="RemoveUnusedNativeArtifacts" AfterTargets="Publish">
+    <ItemGroup>
+      <UnusedPublishArtifacts Include="$(PublishDir)**\*.a" />
+      <UnusedPublishArtifacts Include="$(PublishDir)**\*.lib" />
+    </ItemGroup>
+    <Delete Files="@(UnusedPublishArtifacts)" />
+  </Target>
+
+</Project>

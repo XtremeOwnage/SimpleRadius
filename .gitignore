@@ -1,0 +1,16 @@
+bin/
+obj/
+data/
+*.db
+*.db-shm
+*.db-wal
+*.user
+.vs/
+
+# Keep the shared debug configuration, ignore per-user VS Code state.
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Don't check in my scratch / todo list.
+TODO.md

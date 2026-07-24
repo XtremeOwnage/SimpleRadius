@@ -1,0 +1,45 @@
+{
+    "version": "0.2.0",
+    // Ports are not set here. Each configuration names a profile in
+    // SimpleRadius/Properties/launchSettings.json, which is where every development port lives.
+    "configurations": [
+        {
+            "name": "SimpleRadius",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/SimpleRadius/bin/Debug/net10.0/SimpleRadius.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/SimpleRadius",
+            "stopAtEntry": false,
+            "launchSettingsProfile": "http",
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+                "uriFormat": "%s"
+            }
+        },
+        {
+            // Shares no port with the configuration above, so this can run alongside it.
+            "name": "SimpleRadius (alternate ports, scratch database)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/SimpleRadius/bin/Debug/net10.0/SimpleRadius.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/SimpleRadius",
+            "stopAtEntry": false,
+            "launchSettingsProfile": "alternate-ports",
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+                "uriFormat": "%s"
+            }
+        },
+        {
+            "name": "Attach to a running SimpleRadius",
+            "type": "coreclr",
+            "request": "attach"
+        }
+    ]
+}

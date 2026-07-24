@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    // Every port used during development lives here. "applicationUrl" is the admin web UI;
+    // the RADIUS ports come from RadiusServerSettings, defaulting to 1812/1813 in appsettings.json.
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5285",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    // A second instance that shares no port with the profile above, so both can run at once and a
+    // relaunch never collides. Also keeps its own database and accepts any router on loopback.
+    "alternate-ports": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5286",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "RadiusServerSettings__AuthPort": "11812",
+        "RadiusServerSettings__AcctPort": "11813",
+        "RadiusServerSettings__ListenAddress": "127.0.0.1",
+        "RadiusServerSettings__DatabasePath": "data/simple-radius-debug.db",
+        "RadiusServerSettings__AutoRegisterUnknownNas": "true",
+        "RadiusServerSettings__DefaultSharedSecret": "debug-secret"
+      }
+    }
+  }
+}
