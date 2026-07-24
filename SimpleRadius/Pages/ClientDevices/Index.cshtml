@@ -21,16 +21,16 @@
     <div class="card-header">Add a client</div>
     <div class="card-body">
         <form method="post" class="row g-3">
+            <div class="col-md-4">
+                <label asp-for="Input.Description" class="form-label"></label>
+                <input asp-for="Input.Description" class="form-control" placeholder="Office Lamp" />
+                <span asp-validation-for="Input.Description" class="text-danger small"></span>
+            </div>
             <div class="col-md-3">
                 <label asp-for="Input.Name" class="form-label"></label>
                 <input asp-for="Input.Name" class="form-control" placeholder="@Model.FormatMac("aa:bb:cc:dd:ee:ff")" />
                 <div class="form-text">Any MAC spelling is accepted.</div>
                 <span asp-validation-for="Input.Name" class="text-danger small"></span>
-            </div>
-            <div class="col-md-4">
-                <label asp-for="Input.Description" class="form-label"></label>
-                <input asp-for="Input.Description" class="form-control" placeholder="Optional" />
-                <span asp-validation-for="Input.Description" class="text-danger small"></span>
             </div>
             <div class="col-md-3">
                 <label asp-for="Input.VlanDefinitionId" class="form-label"></label>
@@ -48,8 +48,8 @@
     <table class="table table-striped align-middle">
         <thead>
             <tr>
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "description", "Name")' />
                 <partial name="_SortHeader" model='new SortHeader(Model.Sort, "name", "Identity")' />
-                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "description", "Description")' />
                 <partial name="_SortHeader" model='new SortHeader(Model.Sort, "vlan", "VLAN")' />
                 <partial name="_SortHeader" model='new SortHeader(Model.Sort, "seen", "Last seen")' />
                 <partial name="_SortHeader" model='new SortHeader(Model.Sort, "auths", "Auths", "text-end")' />
@@ -62,13 +62,24 @@
         {
             <tr>
                 <td>
-                    <code>@Model.FormatMac(client.Name)</code>
+                    @if (!string.IsNullOrWhiteSpace(client.Description))
+                    {
+                        <span>@client.Description</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted fst-italic">unnamed</span>
+                    }
                     @if (client.IsAutoCreated)
                     {
-                        <span class="badge text-bg-info ms-1">auto</span>
+                        <span class="badge text-bg-info ms-1" title="Created automatically on first authentication">auto</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(client.Notes))
+                    {
+                        <span class="ms-1 text-muted" title="Has notes">&#9998;</span>
                     }
                 </td>
-                <td class="text-muted">@client.Description</td>
+                <td><code>@Model.FormatMac(client.Name)</code></td>
                 <td>
                     @if (client.VlanDefinition is not null)
                     {
