@@ -1,0 +1,32 @@
+services:
+  simpleradius:
+    build: .
+    image: simpleradius:latest
+    container_name: simpleradius
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"          # admin web UI
+      - "1812:1812/udp"      # RADIUS authentication
+      - "1813:1813/udp"      # RADIUS accounting
+
+    volumes:
+      - simpleradius-data:/data
+
+    environment:
+      # Startup settings only. Client policy, VLAN defaults and reply attributes are edited on the
+      # settings page and stored in the database, so they survive a container replacement.
+      RadiusServerSettings__DatabasePath: /data/simple-radius.db
+      RadiusServerSettings__WebUiUrl: http://0.0.0.0:8080
+
+    healthcheck:
+      # The image has no shell or curl; the app probes its own /healthz, which opens the database, so a
+      # passing check means more than "Kestrel is listening".
+      test: ["CMD", "dotnet", "SimpleRadius.dll", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  simpleradius-data:

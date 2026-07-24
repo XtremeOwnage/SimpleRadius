@@ -1,0 +1,20 @@
+# Startup settings only. Client policy, VLAN defaults, MAC format and reply attributes are edited on
+# the settings page and stored in the database, so they are not managed here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: simpleradius-config
+  namespace: simpleradius
+data:
+  RadiusServerSettings__DatabasePath: /data/simple-radius.db
+  RadiusServerSettings__WebUiUrl: http://0.0.0.0:8080
+  RadiusServerSettings__ListenAddress: 0.0.0.0
+  RadiusServerSettings__AuthPort: "1812"
+  RadiusServerSettings__AcctPort: "1813"
+  RadiusServerSettings__DefaultVlanName: Default
+
+  # Seed values, applied only when the database is created for the first time.
+  RadiusServerSettings__Seed__DefaultVlanId: "10"
+  RadiusServerSettings__Seed__AutoCreateUnknownClients: "true"
+  RadiusServerSettings__Seed__AutoRegisterUnknownNas: "false"
+  RadiusServerSettings__Seed__AcctInterimIntervalSeconds: "600"

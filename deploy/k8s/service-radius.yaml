@@ -1,0 +1,29 @@
+# The RADIUS listeners are exposed separately from the web UI: several load balancer implementations
+# refuse a single service that mixes TCP and UDP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: simpleradius-radius
+  namespace: simpleradius
+  labels:
+    app.kubernetes.io/name: simpleradius
+spec:
+  type: LoadBalancer
+
+  # This matters more than anything else here. A NAS is identified by the source address of its
+  # packets, and the default (Cluster) policy source-NATs traffic to the node address — every router
+  # would then look like the same unconfigured client and its packets would be dropped. "Local"
+  # preserves the original address, at the cost of only routing to nodes running the pod.
+  externalTrafficPolicy: Local
+
+  selector:
+    app.kubernetes.io/name: simpleradius
+  ports:
+    - name: radius-auth
+      port: 1812
+      targetPort: radius-auth
+      protocol: UDP
+    - name: radius-acct
+      port: 1813
+      targetPort: radius-acct
+      protocol: UDP

@@ -1,0 +1,18 @@
+# The admin UI has no authentication of its own, so this stays a ClusterIP. Reach it with
+# "kubectl port-forward", or put an ingress in front of it that handles access control.
+apiVersion: v1
+kind: Service
+metadata:
+  name: simpleradius-web
+  namespace: simpleradius
+  labels:
+    app.kubernetes.io/name: simpleradius
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: simpleradius
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

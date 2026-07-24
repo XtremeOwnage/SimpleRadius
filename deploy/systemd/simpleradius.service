@@ -1,0 +1,43 @@
+[Unit]
+Description=SimpleRadius - RADIUS server with dynamic VLAN assignment
+Documentation=https://github.com/XtremeOwnage/SimpleRadius
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=all
+User=simpleradius
+Group=simpleradius
+
+WorkingDirectory=/opt/simpleradius
+ExecStart=/opt/simpleradius/SimpleRadius
+
+Environment=DOTNET_ENVIRONMENT=Production
+EnvironmentFile=-/etc/simpleradius/simpleradius.env
+
+Restart=on-failure
+RestartSec=5
+
+# Ports 1812/1813 are above 1024, so no privileged binding is needed. If you move the admin UI to
+# port 80 or 443, add: AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+# The only writable location: database, Data Protection keys and optional log files.
+StateDirectory=simpleradius
+ReadWritePaths=/var/lib/simpleradius
+
+[Install]
+WantedBy=multi-user.target

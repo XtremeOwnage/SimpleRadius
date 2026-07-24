@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: simpleradius
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - statefulset.yaml
+  - service-web.yaml
+  - service-radius.yaml
+
+images:
+  - name: simpleradius
+    newTag: latest
