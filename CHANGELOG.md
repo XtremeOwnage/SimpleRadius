@@ -6,6 +6,25 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Notes field** on clients, VLANs and network access servers, shown when editing, for your own
+  reference.
+- Accounting sessions now show the **connected device's name** (from the client record) alongside the
+  MAC, on both the active/history tables and the per-client usage rollup. Session search matches the
+  name too.
+
+### Changed
+
+- On the Clients page, the friendly name (formerly labelled "Description") is now called **Name** and is
+  the primary column, with the MAC identity beside it.
+
+### Fixed
+
+- A database created by an earlier build is now brought up to date automatically on startup: newly added
+  nullable columns are created in place, so an upgrade no longer needs a fresh database. (This is an
+  additive-only top-up, not full migrations — dropped or renamed columns still would.)
+
 ## [1.0.0] - 2026-07-23
 
 First public release. Published as `v1.0.0-rc` for testing ahead of the final tag.
