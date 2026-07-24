@@ -66,6 +66,7 @@ public class EditModel : PageModel
         nas.AccountingEnabled = Input.AccountingEnabled;
         nas.IsEnabled = Input.IsEnabled;
         nas.IsAutoRegistered = false;
+        nas.Notes = Input.Notes;
         nas.UpdatedUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 

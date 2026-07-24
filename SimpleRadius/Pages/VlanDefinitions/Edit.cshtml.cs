@@ -59,6 +59,7 @@ public class EditModel : PageModel
         vlan.Name = Input.Name;
         vlan.VlanId = Input.VlanId;
         vlan.Description = Input.Description;
+        vlan.Notes = Input.Notes;
         vlan.UpdatedUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 

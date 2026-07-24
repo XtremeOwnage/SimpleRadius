@@ -33,6 +33,11 @@ public class NetworkAccessServer
     [Display(Name = "Auto-registered")]
     public bool IsAutoRegistered { get; set; }
 
+    /// <summary>Free-text operator notes, shown when editing the NAS.</summary>
+    [StringLength(2000)]
+    [Display(Name = "Notes")]
+    public string? Notes { get; set; }
+
     [Display(Name = "Last seen")]
     public DateTime? LastSeenUtc { get; set; }
 

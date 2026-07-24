@@ -74,6 +74,7 @@ public class EditModel : PageModel
 
         client.Name = Input.Name;
         client.Description = Input.Description;
+        client.Notes = Input.Notes;
         client.VlanDefinitionId = Input.VlanDefinitionId;
         client.IsEnabled = Input.IsEnabled;
         client.UpdatedUtc = DateTime.UtcNow;

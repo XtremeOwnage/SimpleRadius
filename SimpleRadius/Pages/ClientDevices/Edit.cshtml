@@ -10,19 +10,25 @@
     <input type="hidden" asp-for="Input.Id" />
 
     <div class="mb-3">
-        <label asp-for="Input.Name" class="form-label"></label>
-        <input asp-for="Input.Name" class="form-control" />
-        <span asp-validation-for="Input.Name" class="text-danger small"></span>
+        <label asp-for="Input.Description" class="form-label"></label>
+        <input asp-for="Input.Description" class="form-control" placeholder="Office Lamp" />
+        <span asp-validation-for="Input.Description" class="text-danger small"></span>
     </div>
     <div class="mb-3">
-        <label asp-for="Input.Description" class="form-label"></label>
-        <input asp-for="Input.Description" class="form-control" />
-        <span asp-validation-for="Input.Description" class="text-danger small"></span>
+        <label asp-for="Input.Name" class="form-label"></label>
+        <input asp-for="Input.Name" class="form-control" />
+        <div class="form-text">The RADIUS identity — the MAC the device authenticates with. Any spelling is accepted.</div>
+        <span asp-validation-for="Input.Name" class="text-danger small"></span>
     </div>
     <div class="mb-3">
         <label asp-for="Input.VlanDefinitionId" class="form-label"></label>
         <select asp-for="Input.VlanDefinitionId" asp-items="Model.VlanOptions" class="form-select"></select>
         <span asp-validation-for="Input.VlanDefinitionId" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.Notes" class="form-label"></label>
+        <textarea asp-for="Input.Notes" class="form-control" rows="3" placeholder="Optional notes for your own reference"></textarea>
+        <span asp-validation-for="Input.Notes" class="text-danger small"></span>
     </div>
     <div class="form-check mb-3">
         <input asp-for="Input.IsEnabled" class="form-check-input" />

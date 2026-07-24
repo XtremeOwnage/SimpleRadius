@@ -35,6 +35,11 @@
         <label asp-for="Input.IsEnabled" class="form-check-label"></label>
         <div class="form-text">When off, every packet from this address is ignored.</div>
     </div>
+    <div class="mb-3">
+        <label asp-for="Input.Notes" class="form-label"></label>
+        <textarea asp-for="Input.Notes" class="form-control" rows="3" placeholder="Optional notes for your own reference"></textarea>
+        <span asp-validation-for="Input.Notes" class="text-danger small"></span>
+    </div>
 
     <button type="submit" class="btn btn-primary">Save</button>
     <a class="btn btn-outline-secondary" asp-page="Index">Cancel</a>

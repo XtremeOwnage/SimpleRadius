@@ -15,9 +15,18 @@ public class ClientDevice
     [Display(Name = "Identity (MAC or user name)")]
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Friendly name shown in the UI, e.g. "Office Lamp". The column is still "Description" so existing
+    /// data is preserved; only the label changed. <see cref="Name"/> remains the RADIUS identity.
+    /// </summary>
     [StringLength(256)]
-    [Display(Name = "Description")]
+    [Display(Name = "Name")]
     public string? Description { get; set; }
+
+    /// <summary>Free-text operator notes, shown when editing the client.</summary>
+    [StringLength(2000)]
+    [Display(Name = "Notes")]
+    public string? Notes { get; set; }
 
     [Required]
     [Display(Name = "VLAN")]
