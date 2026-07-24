@@ -6,9 +6,9 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-07-23
+## [1.0.0] - 2026-07-23
 
-First public release.
+First public release. Published as `v1.0.0-rc` for testing ahead of the final tag.
 
 ### Added
 
@@ -56,5 +56,5 @@ First public release.
 - One instance only; SQLite permits a single writer.
 - No schema migrations. `EnsureCreated` builds the database, so a schema change needs a fresh one.
 
-[Unreleased]: https://github.com/XtremeOwnage/SimpleRadius/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/XtremeOwnage/SimpleRadius/releases/tag/v0.1.0
+[Unreleased]: https://github.com/XtremeOwnage/SimpleRadius/compare/v1.0.0-rc...HEAD
+[1.0.0]: https://github.com/XtremeOwnage/SimpleRadius/releases/tag/v1.0.0
