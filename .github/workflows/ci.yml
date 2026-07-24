@@ -91,6 +91,8 @@ jobs:
 
       - name: Build the image (no push)
         uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
           push: false

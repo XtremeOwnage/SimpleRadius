@@ -274,6 +274,10 @@ jobs:
             type=raw,value=latest,enable=${{ needs.version.outputs.prerelease == 'false' }}
 
       - uses: docker/build-push-action@v6
+        env:
+          # Otherwise this uploads a ".dockerbuild" record artifact that is not a normal zip, which
+          # breaks the release job's artifact download when it tries to extract everything.
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -291,9 +295,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # actions/download-artifact occasionally times out against the blob backend after its own retries,
-      # which fails the whole release even though every artifact built fine. gh run download in an explicit
-      # retry loop is resilient to that transient failure; it lays each artifact in its own subdirectory,
+      # Download only the artifacts we publish. A blanket download also pulls the ".dockerbuild" record
+      # the container job emits, which is not a normal zip and fails extraction. The retry loop with
+      # backoff covers a genuine transient blob hiccup; gh lays each artifact in its own subdirectory,
       # so the release action globs recursively below.
       - name: Download release artifacts (with retry)
         env:
@@ -301,7 +305,7 @@ jobs:
         run: |
           for attempt in 1 2 3 4 5; do
             rm -rf artifacts && mkdir -p artifacts
-            if gh run download "${GITHUB_RUN_ID}" --dir artifacts; then
+            if gh run download "${GITHUB_RUN_ID}" --pattern 'binaries-*' --pattern 'packages-*' --dir artifacts; then
               echo "Downloaded on attempt ${attempt}."
               break
             fi
