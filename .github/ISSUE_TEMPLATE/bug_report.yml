@@ -1,0 +1,48 @@
+name: Bug report
+description: Something is not working
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not report security vulnerabilities here.
+        Use [a private advisory](https://github.com/XtremeOwnage/SimpleRadius/security/advisories/new).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "0.1.0, or the container tag"
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How is it deployed?
+      options: [Docker, Docker Compose, Kubernetes, systemd, deb/rpm, Standalone binary, From source]
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Router or access point
+      description: Model and firmware. Very useful for anything VLAN related.
+      placeholder: "UniFi UDM Pro 4.0.6 / MikroTik CRS328 7.14"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: "Try Logging__LogLevel__SimpleRadius=Debug. Redact your shared secrets."
+      render: text

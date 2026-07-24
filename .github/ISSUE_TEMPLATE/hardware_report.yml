@@ -1,0 +1,32 @@
+name: Hardware compatibility report
+description: Tell us whether your gear works, and with which settings
+labels: [hardware]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports are genuinely valuable — compatibility is the hardest thing to test alone.
+        Working reports are as welcome as broken ones.
+  - type: input
+    id: hardware
+    attributes:
+      label: Router, switch or access point
+      placeholder: "MikroTik CRS328-24P-4S+ / RouterOS 7.14"
+    validations:
+      required: true
+  - type: dropdown
+    id: works
+    attributes:
+      label: Does dynamic VLAN assignment work?
+      options: ["Yes, with defaults", "Yes, after changing settings", "No"]
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings you had to change
+      description: Tunnel tag, Egress-VLANID, Service-Type, and so on.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else worth knowing
