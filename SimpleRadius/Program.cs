@@ -76,6 +76,7 @@ builder.Services.AddDbContextFactory<RadiusDbContext>(options => options.UseSqli
 builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<RadiusDbContext>>().CreateDbContext());
 builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<AccountingService>();
+builder.Services.AddScoped<BackupService>();
 builder.Services.AddSingleton<RadiusServerProcess>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RadiusServerProcess>());
 

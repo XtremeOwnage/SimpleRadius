@@ -1,0 +1,65 @@
+@page
+@model SimpleRadius.Pages.Backup.IndexModel
+@{
+    ViewData["Title"] = "Import / export";
+}
+
+<h2 class="mb-3">Import / export</h2>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">Export</div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Download the full configuration — VLANs, clients, network access servers and settings —
+                    as a single file. Keep it as a backup, or import it into another instance.
+                </p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-primary" asp-page-handler="Export" asp-route-format="json">Download JSON</a>
+                    <a class="btn btn-primary" asp-page-handler="Export" asp-route-format="yaml">Download YAML</a>
+                </div>
+                <div class="alert alert-warning mt-3 mb-0 small">
+                    The file contains your NAS <strong>shared secrets in plaintext</strong>. Store it
+                    somewhere safe, as you would a password.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">Import</div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Load a JSON or YAML file. Records are matched by VLAN number, client identity and NAS
+                    address: existing ones are updated, new ones are added. Nothing is deleted.
+                </p>
+                <form method="post" asp-page-handler="Import" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label asp-for="Upload" class="form-label">Configuration file</label>
+                        <input asp-for="Upload" type="file" class="form-control" accept=".json,.yaml,.yml,application/json,application/x-yaml" />
+                    </div>
+                    <div class="form-check mb-3">
+                        <input asp-for="ImportSettings" class="form-check-input" />
+                        <label asp-for="ImportSettings" class="form-check-label">Also import server settings</label>
+                        <div class="form-text">
+                            Off by default. When on, the file's default VLAN, reply attributes and other
+                            settings overwrite the current ones.
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary"
+                            onclick="return confirm('Import this file? Existing records with the same key are overwritten.');">
+                        Import
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted small mt-4">
+    The format is stable and human-editable: a client references its VLAN by number, so you can hand-write
+    or template a configuration and import it. Internal ids, timestamps and accounting history are not
+    included.
+</p>

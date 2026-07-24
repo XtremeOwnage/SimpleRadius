@@ -27,6 +27,8 @@ public class StartupTests : IClassFixture<SimpleRadiusApplication>
     [InlineData("/NetworkAccessServers")]
     [InlineData("/Sessions")]
     [InlineData("/Settings")]
+    [InlineData("/Backup")]
+    [InlineData("/VlanDefinitions?grouped=true")]
     public async Task EveryAdminPageIsServed(string path)
     {
         using var client = _application.CreateClient();
