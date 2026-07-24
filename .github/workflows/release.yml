@@ -1,0 +1,336 @@
+name: Release
+
+# Tag a release to publish everything:
+#   git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
+#
+# Every artifact - container image, binaries, deb, rpm - is stamped with the same version derived from
+# the tag, so a release can never ship mismatched numbers.
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, without the leading v (e.g. 1.2.3)'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  REGISTRY: ghcr.io
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.derive.outputs.version }}
+      prerelease: ${{ steps.derive.outputs.prerelease }}
+    steps:
+      - id: derive
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+
+          if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$version' is not a semantic version"
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # A hyphen means a pre-release identifier such as 1.2.3-rc.1.
+          case "$version" in
+            *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+          echo "Building version $version"
+
+  test:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet test --configuration Release
+
+  binaries:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            archive: tar.gz
+          - rid: linux-arm64
+            archive: tar.gz
+          - rid: linux-arm
+            archive: tar.gz
+          - rid: win-x64
+            archive: zip
+          - rid: win-arm64
+            archive: zip
+          - rid: osx-arm64
+            archive: tar.gz
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish self-contained single file
+        run: |
+          # Self-contained so there is nothing to install first. Trimming and Native AOT are unavailable:
+          # Razor Pages and EF Core both declare themselves incompatible, so these are ~100 MB.
+          dotnet publish SimpleRadius/SimpleRadius.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:Version=${{ needs.version.outputs.version }} \
+            -p:PublishSingleFile=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:DebugType=none \
+            -o publish/${{ matrix.rid }}
+
+          # Deployment helpers travel with the release so install.sh works from an extracted tarball.
+          mkdir -p publish/${{ matrix.rid }}/deploy
+          cp -r deploy/systemd publish/${{ matrix.rid }}/deploy/ 2>/dev/null || true
+          cp README.md LICENSE publish/${{ matrix.rid }}/ 2>/dev/null || true
+
+      - name: Package
+        run: |
+          mkdir -p artifacts
+          name="simpleradius-${{ needs.version.outputs.version }}-${{ matrix.rid }}"
+          mv publish/${{ matrix.rid }} "publish/$name"
+
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            (cd publish && zip -qr "../artifacts/$name.zip" "$name")
+          else
+            tar -czf "artifacts/$name.tar.gz" -C publish "$name"
+          fi
+
+          (cd artifacts && sha256sum "$name.${{ matrix.archive }}" > "$name.${{ matrix.archive }}.sha256")
+          ls -lh artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.rid }}
+          path: artifacts/*
+
+  packages:
+    # deb and rpm are built from the same self-contained publish, so an install needs no .NET runtime.
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            deb_arch: amd64
+            rpm_arch: x86_64
+          - rid: linux-arm64
+            deb_arch: arm64
+            rpm_arch: aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install fpm
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ruby ruby-dev build-essential rpm
+          sudo gem install --no-document fpm
+
+      - name: Publish
+        run: |
+          dotnet publish SimpleRadius/SimpleRadius.csproj \
+            -c Release -r ${{ matrix.rid }} --self-contained true \
+            -p:Version=${{ needs.version.outputs.version }} \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:DebugType=none \
+            -o publish
+
+      - name: Lay out the package tree
+        run: |
+          install -d pkgroot/opt/simpleradius
+          cp -r publish/. pkgroot/opt/simpleradius/
+          chmod +x pkgroot/opt/simpleradius/SimpleRadius
+
+          install -d pkgroot/lib/systemd/system
+          cp deploy/systemd/simpleradius.service pkgroot/lib/systemd/system/
+
+          install -d pkgroot/etc/simpleradius
+          cp deploy/systemd/simpleradius.env.example pkgroot/etc/simpleradius/simpleradius.env.example
+
+      - name: Write maintainer scripts
+        run: |
+          cat > after-install.sh <<'EOF'
+          #!/bin/sh
+          set -e
+          if ! id -u simpleradius >/dev/null 2>&1; then
+              useradd --system --no-create-home --shell /usr/sbin/nologin simpleradius || \
+              adduser --system --no-create-home --shell /usr/sbin/nologin simpleradius || true
+          fi
+          install -d -o simpleradius -g simpleradius -m 0750 /var/lib/simpleradius
+          # Never clobber an operator's edited configuration on upgrade.
+          if [ ! -f /etc/simpleradius/simpleradius.env ]; then
+              cp /etc/simpleradius/simpleradius.env.example /etc/simpleradius/simpleradius.env
+              chown root:simpleradius /etc/simpleradius/simpleradius.env
+              chmod 0640 /etc/simpleradius/simpleradius.env
+          fi
+          systemctl daemon-reload || true
+          echo "SimpleRadius installed. Start it with: systemctl enable --now simpleradius"
+          echo "The admin UI has NO authentication by default - keep it on a trusted network."
+          EOF
+
+          cat > before-remove.sh <<'EOF'
+          #!/bin/sh
+          set -e
+          if [ "$1" = "remove" ] || [ "$1" = "0" ]; then
+              systemctl disable --now simpleradius >/dev/null 2>&1 || true
+          fi
+          EOF
+
+          chmod +x after-install.sh before-remove.sh
+
+      - name: Build deb and rpm
+        run: |
+          mkdir -p artifacts
+          for target in deb rpm; do
+            if [ "$target" = "deb" ]; then arch="${{ matrix.deb_arch }}"; else arch="${{ matrix.rpm_arch }}"; fi
+
+            fpm -s dir -t "$target" \
+              --name simpleradius \
+              --version "${{ needs.version.outputs.version }}" \
+              --architecture "$arch" \
+              --description "RADIUS server with dynamic VLAN assignment, accounting and a web admin UI" \
+              --url "https://github.com/XtremeOwnage/SimpleRadius" \
+              --license MIT \
+              --maintainer "XtremeOwnage <XtremeOwnage@users.noreply.github.com>" \
+              --after-install after-install.sh \
+              --before-remove before-remove.sh \
+              --config-files /etc/simpleradius/simpleradius.env.example \
+              --package "artifacts/simpleradius_${{ needs.version.outputs.version }}_${arch}.${target}" \
+              -C pkgroot .
+          done
+
+          (cd artifacts && for f in *; do sha256sum "$f" > "$f.sha256"; done)
+          ls -lh artifacts
+
+      - name: Verify the deb installs cleanly
+        if: matrix.rid == 'linux-x64'
+        run: |
+          sudo dpkg -i artifacts/simpleradius_${{ needs.version.outputs.version }}_amd64.deb
+          test -x /opt/simpleradius/SimpleRadius
+          test -f /lib/systemd/system/simpleradius.service
+          test -f /etc/simpleradius/simpleradius.env
+          # Probe mode exits non-zero with nothing listening, which proves the binary runs.
+          /opt/simpleradius/SimpleRadius --healthcheck || echo "probe returned non-zero as expected"
+          sudo dpkg -r simpleradius
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.rid }}
+          path: artifacts/*
+
+  container:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}},value=v${{ needs.version.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.version.outputs.prerelease == 'false' }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: [version, binaries, packages, container]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List what is being released
+        run: ls -lh artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ needs.version.outputs.version }}
+          tag_name: v${{ needs.version.outputs.version }}
+          prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
+          generate_release_notes: true
+          files: artifacts/*
+          body: |
+            ## Container
+
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ needs.version.outputs.version }}
+            ```
+
+            Multi-arch: `linux/amd64` and `linux/arm64`.
+
+            ## Downloads
+
+            Self-contained: no .NET runtime required. Every artifact below is version
+            `${{ needs.version.outputs.version }}`, built from tag `v${{ needs.version.outputs.version }}`.
+            Verify with the matching `.sha256` file.
+
+            | Platform | File |
+            | --- | --- |
+            | Linux x64 | `simpleradius-${{ needs.version.outputs.version }}-linux-x64.tar.gz` |
+            | Linux arm64 | `simpleradius-${{ needs.version.outputs.version }}-linux-arm64.tar.gz` |
+            | Linux arm | `simpleradius-${{ needs.version.outputs.version }}-linux-arm.tar.gz` |
+            | Windows x64 | `simpleradius-${{ needs.version.outputs.version }}-win-x64.zip` |
+            | Windows arm64 | `simpleradius-${{ needs.version.outputs.version }}-win-arm64.zip` |
+            | macOS arm64 | `simpleradius-${{ needs.version.outputs.version }}-osx-arm64.tar.gz` |
+            | Debian/Ubuntu | `simpleradius_${{ needs.version.outputs.version }}_amd64.deb`, `_arm64.deb` |
+            | RHEL/Fedora | `simpleradius_${{ needs.version.outputs.version }}_x86_64.rpm`, `_aarch64.rpm` |
+
+            > **The admin UI has no authentication by default.** Keep it on a trusted network, or
+            > configure OpenID Connect. See [SECURITY.md](SECURITY.md).

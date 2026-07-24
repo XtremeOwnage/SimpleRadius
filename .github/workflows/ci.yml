@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      - name: Fail on vulnerable or deprecated packages
+        run: |
+          set -o pipefail
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee vulnerable.txt
+          if grep -q '> ' vulnerable.txt; then
+            echo "::error::Vulnerable packages found"
+            exit 1
+          fi
+          dotnet list package --deprecated 2>&1 | tee deprecated.txt
+          if grep -q '> ' deprecated.txt; then
+            echo "::warning::Deprecated packages found"
+          fi
+
+  publish-check:
+    # The publish path is what releases ship, and it has its own failure modes: a missing RuntimeIdentifier
+    # silently adds ~84 MB of native SQLite builds for platforms nobody asked for.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish
+        run: |
+          dotnet publish SimpleRadius/SimpleRadius.csproj \
+            -c Release -r linux-x64 --self-contained false \
+            -o ./publish
+
+      - name: Guard the publish size
+        run: |
+          size_kb=$(du -sk ./publish | cut -f1)
+          echo "Publish output: $((size_kb / 1024)) MB"
+          # Generous headroom over the ~10 MB baseline, but low enough to catch the runtimes/ regression.
+          if [ "$size_kb" -gt 40960 ]; then
+            echo "::error::Publish output is $((size_kb / 1024)) MB, far above the ~10 MB baseline."
+            echo "Check that the publish used a RuntimeIdentifier; without one the SQLite bundle ships every platform."
+            exit 1
+          fi
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: simpleradius:ci
+          build-args: |
+            VERSION=0.0.0-ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test the image
+        run: |
+          docker run -d --name simpleradius-ci \
+            -e RadiusServerSettings__DatabasePath=/tmp/ci.db \
+            -p 8080:8080 simpleradius:ci
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+              echo "Healthy after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+          curl -fsS http://127.0.0.1:8080/healthz
+          curl -fsS -o /dev/null -w 'dashboard: %{http_code}\n' http://127.0.0.1:8080/
+
+          # The image has no shell, so this also proves the built-in probe mode works.
+          docker exec simpleradius-ci dotnet SimpleRadius.dll --healthcheck
+
+          echo "Image size: $(docker image inspect simpleradius:ci --format '{{.Size}}' | awk '{printf "%.0f MB\n", $1/1024/1024}')"
+          docker logs simpleradius-ci
+          docker rm -f simpleradius-ci
