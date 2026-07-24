@@ -30,6 +30,13 @@ public class SchemaUpgraderTests
             await drop.ExecuteNonQueryAsync();
         }
 
+        // Group was added after Notes; drop it too so the test covers a database older than both.
+        await using (var dropGroup = connection.CreateCommand())
+        {
+            dropGroup.CommandText = "ALTER TABLE \"VlanDefinitions\" DROP COLUMN \"Group\";";
+            await dropGroup.ExecuteNonQueryAsync();
+        }
+
         return (connection, options);
     }
 
@@ -54,6 +61,7 @@ public class SchemaUpgraderTests
             Assert.True(await HasColumnAsync(connection, "ClientDevices", "Notes"));
             Assert.True(await HasColumnAsync(connection, "NetworkAccessServers", "Notes"));
             Assert.True(await HasColumnAsync(connection, "VlanDefinitions", "Notes"));
+            Assert.True(await HasColumnAsync(connection, "VlanDefinitions", "Group"));
         }
         finally
         {

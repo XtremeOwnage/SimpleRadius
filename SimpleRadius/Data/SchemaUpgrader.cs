@@ -21,6 +21,7 @@ public static class SchemaUpgrader
         ("ClientDevices", "Notes", "TEXT"),
         ("NetworkAccessServers", "Notes", "TEXT"),
         ("VlanDefinitions", "Notes", "TEXT"),
+        ("VlanDefinitions", "Group", "TEXT"),
     ];
 
     public static async Task ApplyAsync(RadiusDbContext db, ILogger logger, CancellationToken cancellationToken = default)

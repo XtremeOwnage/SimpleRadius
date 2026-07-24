@@ -20,6 +20,12 @@
         <span asp-validation-for="Input.VlanId" class="text-danger small"></span>
     </div>
     <div class="mb-3">
+        <label asp-for="Input.Group" class="form-label"></label>
+        <input asp-for="Input.Group" class="form-control" placeholder="e.g. LAN or IOT" />
+        <div class="form-text">Optional. VLANs sharing a group are shown together in the grouped view.</div>
+        <span asp-validation-for="Input.Group" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
         <label asp-for="Input.Description" class="form-label"></label>
         <input asp-for="Input.Description" class="form-control" />
         <span asp-validation-for="Input.Description" class="text-danger small"></span>

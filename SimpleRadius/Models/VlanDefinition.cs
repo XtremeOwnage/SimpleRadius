@@ -16,6 +16,11 @@ public class VlanDefinition
     [Display(Name = "VLAN ID")]
     public int VlanId { get; set; }
 
+    /// <summary>Optional label for grouping VLANs on the list page, e.g. "LAN" or "IOT".</summary>
+    [StringLength(100)]
+    [Display(Name = "Group")]
+    public string? Group { get; set; }
+
     [StringLength(256)]
     [Display(Name = "Description")]
     public string? Description { get; set; }

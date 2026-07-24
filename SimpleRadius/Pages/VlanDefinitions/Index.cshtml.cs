@@ -10,10 +10,14 @@ namespace SimpleRadius.Pages.VlanDefinitions;
 
 public class IndexModel : PageModel
 {
+    /// <summary>Shown as the section heading for VLANs with no group set.</summary>
+    public const string Ungrouped = "Ungrouped";
+
     private static readonly Dictionary<string, Expression<Func<VlanDefinition, object?>>> SortColumns = new()
     {
         ["vlan"] = v => v.VlanId,
         ["name"] = v => v.Name,
+        ["group"] = v => v.Group,
         ["description"] = v => v.Description
     };
 
@@ -28,9 +32,15 @@ public class IndexModel : PageModel
 
     public List<VlanDefinition> Vlans { get; private set; } = [];
 
+    /// <summary>VLANs bucketed by group, for the grouped view. Ungrouped VLANs come last.</summary>
+    public List<(string Group, List<VlanDefinition> Vlans)> Groups { get; private set; } = [];
+
     public Dictionary<int, int> ClientCounts { get; private set; } = [];
 
     public int DefaultVlanId { get; private set; }
+
+    /// <summary>True when any VLAN has a group, so the grouped-view toggle is worth showing.</summary>
+    public bool HasGroups { get; private set; }
 
     public TableSort Sort { get; private set; } = new(null, false, "vlan");
 
@@ -39,6 +49,9 @@ public class IndexModel : PageModel
 
     [BindProperty(SupportsGet = true, Name = "desc")]
     public bool Descending { get; set; }
+
+    [BindProperty(SupportsGet = true, Name = "grouped")]
+    public bool Grouped { get; set; }
 
     [BindProperty]
     public VlanDefinition Input { get; set; } = new();
@@ -115,6 +128,16 @@ public class IndexModel : PageModel
         Sort = new TableSort(SortColumn, Descending, "vlan");
 
         Vlans = await Sort.Apply(_db.VlanDefinitions.AsNoTracking(), SortColumns).ToListAsync();
+
+        HasGroups = Vlans.Any(v => !string.IsNullOrWhiteSpace(v.Group));
+
+        // Grouped sections: named groups first (alphabetically), VLANs within each by VLAN ID, ungrouped last.
+        Groups = Vlans
+            .GroupBy(v => string.IsNullOrWhiteSpace(v.Group) ? Ungrouped : v.Group.Trim())
+            .OrderBy(g => g.Key == Ungrouped ? 1 : 0)
+            .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(g => (g.Key, g.OrderBy(v => v.VlanId).ToList()))
+            .ToList();
 
         ClientCounts = await _db.ClientDevices
             .GroupBy(c => c.VlanDefinitionId)
