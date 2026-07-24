@@ -18,7 +18,7 @@
     <!-- Enables Type=notify and journald-formatted logs when running under systemd. -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.0" />
     <!-- YAML import/export of the configuration. JSON uses the built-in System.Text.Json. -->
-    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 
   <!--
