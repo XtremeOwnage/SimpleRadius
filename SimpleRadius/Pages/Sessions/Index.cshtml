@@ -1,0 +1,157 @@
+@page
+@using SimpleRadius.Pages
+@model SimpleRadius.Pages.Sessions.IndexModel
+@{
+    ViewData["Title"] = "Sessions";
+}
+
+@functions {
+    static string Bytes(long value) => SimpleRadius.Pages.Sessions.IndexModel.FormatBytes(value);
+
+    static string Duration(long value) => SimpleRadius.Pages.Sessions.IndexModel.FormatDuration(value);
+
+    async Task SessionTable(IReadOnlyList<SimpleRadius.Models.AccountingSession> sessions, bool active)
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle">
+                <thead>
+                    <tr>
+                        <partial name="_SortHeader" model='new SortHeader(Model.Sort, "client", "Client")' />
+                        <partial name="_SortHeader" model='new SortHeader(Model.Sort, "nas", "NAS")' />
+                        <partial name="_SortHeader" model='new SortHeader(Model.Sort, "vlan", "VLAN")' />
+                        <partial name="_SortHeader" model='new SortHeader(Model.Sort, "started", "Started")' />
+                        <partial name="_SortHeader" model='@(new SortHeader(Model.Sort, active ? "updated" : "stopped", active ? "Last update" : "Stopped"))' />
+                        <partial name="_SortHeader" model='new SortHeader(Model.Sort, "duration", "Duration", "text-end")' />
+                        <partial name="_SortHeader" model='new SortHeader(Model.Sort, "in", "In", "text-end")' />
+                        <partial name="_SortHeader" model='new SortHeader(Model.Sort, "out", "Out", "text-end")' />
+                        <partial name="_SortHeader" model='new SortHeader(Model.Sort, "session", "Session ID")' />
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var session in sessions)
+                {
+                    <tr>
+                        <td><code>@Model.FormatClient(session.ClientName)</code></td>
+                        <td>@session.NasName</td>
+                        <td>@(session.VlanId?.ToString() ?? "—")</td>
+                        <td class="small text-muted">@session.StartTime.ToString("u")</td>
+                        <td class="small text-muted">@((active ? session.LastUpdateTime : session.StopTime ?? session.LastUpdateTime).ToString("u"))</td>
+                        <td class="text-end">@Duration(session.SessionSeconds)</td>
+                        <td class="text-end">@Bytes(session.BytesIn)</td>
+                        <td class="text-end">@Bytes(session.BytesOut)</td>
+                        <td class="small text-muted text-truncate" style="max-width: 12rem;">@session.SessionId</td>
+                    </tr>
+                }
+                @if (sessions.Count == 0)
+                {
+                    <tr><td colspan="9" class="text-muted">Nothing here yet.</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Sessions</h2>
+    <form method="get" class="d-flex gap-2">
+        <input asp-for="Search" class="form-control form-control-sm" style="min-width: 18rem;"
+               placeholder="Search client, MAC, NAS or session ID" />
+        <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Search))
+        {
+            <a class="btn btn-sm btn-outline-secondary" asp-page="Index">Clear</a>
+        }
+    </form>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card h-100"><div class="card-body">
+            <div class="text-muted small text-uppercase">Active sessions</div>
+            <div class="fs-4">@Model.ActiveTotals.Sessions</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100"><div class="card-body">
+            <div class="text-muted small text-uppercase">Closed sessions</div>
+            <div class="fs-4">@Model.ClosedTotals.Sessions</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100"><div class="card-body">
+            <div class="text-muted small text-uppercase">Total transferred</div>
+            <div class="fs-4">@Bytes(Model.ActiveTotals.BytesTotal + Model.ClosedTotals.BytesTotal)</div>
+            <div class="small text-muted">
+                in @Bytes(Model.ActiveTotals.BytesIn + Model.ClosedTotals.BytesIn) /
+                out @Bytes(Model.ActiveTotals.BytesOut + Model.ClosedTotals.BytesOut)
+            </div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100"><div class="card-body">
+            <div class="text-muted small text-uppercase">Connected time</div>
+            <div class="fs-4">@Duration(Model.ActiveTotals.Seconds + Model.ClosedTotals.Seconds)</div>
+        </div></div>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.Search))
+{
+    <p class="text-muted small">Showing sessions matching <strong>@Model.Search</strong>. Totals above cover the matches only.</p>
+}
+@if (Model.Truncated)
+{
+    <p class="text-muted small">Only the first 200 rows of each table are listed; the totals cover everything.</p>
+}
+
+@if (Model.TopClients.Count > 0)
+{
+    <div class="card mb-4">
+        <div class="card-header">Usage by client</div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Client</th>
+                        <th class="text-end">Sessions</th>
+                        <th class="text-end">Active</th>
+                        <th class="text-end">In</th>
+                        <th class="text-end">Out</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">Connected</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var usage in Model.TopClients)
+                {
+                    <tr>
+                        <td><code>@Model.FormatClient(usage.ClientName)</code></td>
+                        <td class="text-end">@usage.Sessions</td>
+                        <td class="text-end">@usage.ActiveSessions</td>
+                        <td class="text-end">@Bytes(usage.BytesIn)</td>
+                        <td class="text-end">@Bytes(usage.BytesOut)</td>
+                        <td class="text-end fw-semibold">@Bytes(usage.BytesTotal)</td>
+                        <td class="text-end">@Duration(usage.Seconds)</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<h4 class="mt-4">Active <span class="badge text-bg-success">@Model.ActiveTotals.Sessions</span></h4>
+@{ await SessionTable(Model.Active, active: true); }
+
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <h4 class="mb-0">History <span class="badge text-bg-secondary">@Model.ClosedTotals.Sessions</span></h4>
+    @if (Model.ClosedTotals.Sessions > 0)
+    {
+        <form method="post" asp-page-handler="ClearHistory"
+              onsubmit="return confirm('Delete all closed sessions?');">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Clear history</button>
+        </form>
+    }
+</div>
+@{ await SessionTable(Model.Closed, active: false); }

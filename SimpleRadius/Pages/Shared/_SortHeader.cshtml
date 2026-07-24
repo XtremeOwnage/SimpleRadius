@@ -1,0 +1,25 @@
+@model SimpleRadius.Pages.SortHeader
+@{
+    // Carry every other query value through so sorting never drops an active search or filter.
+    var route = new Dictionary<string, string?>();
+    foreach (var entry in ViewContext.HttpContext.Request.Query)
+    {
+        if (entry.Key is not ("sort" or "desc"))
+        {
+            route[entry.Key] = entry.Value.ToString();
+        }
+    }
+
+    route["sort"] = Model.Column;
+    route["desc"] = Model.Sort.NextDirectionFor(Model.Column) ? "true" : "false";
+
+    var indicator = Model.Sort.IndicatorFor(Model.Column);
+    var ariaSort = Model.Sort.IsSortedBy(Model.Column)
+        ? (Model.Sort.Descending ? "descending" : "ascending")
+        : "none";
+}
+<th scope="col" aria-sort="@ariaSort" class="@Model.CssClass">
+    <a class="text-decoration-none text-reset" asp-all-route-data="route">
+        @Model.Label<span class="ms-1 text-muted">@indicator</span>
+    </a>
+</th>

@@ -1,0 +1,45 @@
+@page "{id:int}"
+@model SimpleRadius.Pages.NetworkAccessServers.EditModel
+@{
+    ViewData["Title"] = "Edit NAS";
+}
+
+<h2>Edit network access server</h2>
+
+<form method="post" class="col-lg-6">
+    <input type="hidden" asp-for="Input.Id" />
+
+    <div class="mb-3">
+        <label asp-for="Input.Name" class="form-label"></label>
+        <input asp-for="Input.Name" class="form-control" />
+        <span asp-validation-for="Input.Name" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.IpAddress" class="form-label"></label>
+        <input asp-for="Input.IpAddress" class="form-control" />
+        <span asp-validation-for="Input.IpAddress" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.SharedSecret" class="form-label"></label>
+        <input asp-for="Input.SharedSecret" class="form-control" />
+        <div class="form-text">Must match the secret configured on the router exactly.</div>
+        <span asp-validation-for="Input.SharedSecret" class="text-danger small"></span>
+    </div>
+    <div class="form-check mb-2">
+        <input asp-for="Input.AccountingEnabled" class="form-check-input" />
+        <label asp-for="Input.AccountingEnabled" class="form-check-label"></label>
+        <div class="form-text">When off, accounting packets are acknowledged but not stored.</div>
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="Input.IsEnabled" class="form-check-input" />
+        <label asp-for="Input.IsEnabled" class="form-check-label"></label>
+        <div class="form-text">When off, every packet from this address is ignored.</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a class="btn btn-outline-secondary" asp-page="Index">Cancel</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

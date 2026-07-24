@@ -1,0 +1,170 @@
+@page
+@using SimpleRadius.Models
+@model SimpleRadius.Pages.Settings.IndexModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<h2 class="mb-3">Settings</h2>
+
+<form method="post">
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card mb-4">
+                <div class="card-header">Client policy</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="Input.DefaultVlanId" class="form-label"></label>
+                        <input asp-for="Input.DefaultVlanId" class="form-control" type="number" min="1" max="4094" />
+                        <div class="form-text">
+                            @Html.DisplayNameFor(m => m.Input.DefaultVlanId) is created automatically if no VLAN uses it.
+                            @if (Model.Vlans.Any(v => v.VlanId == Model.Input.DefaultVlanId))
+                            {
+                                <text>Currently: <strong>@Model.Vlans.First(v => v.VlanId == Model.Input.DefaultVlanId).Name</strong>.</text>
+                            }
+                        </div>
+                        <span asp-validation-for="Input.DefaultVlanId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input asp-for="Input.AutoCreateUnknownClients" class="form-check-input" />
+                        <label asp-for="Input.AutoCreateUnknownClients" class="form-check-label"></label>
+                        <div class="form-text">Add a device on its first request instead of rejecting it.</div>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input asp-for="Input.AutoRegisterUnknownNas" class="form-check-input" />
+                        <label asp-for="Input.AutoRegisterUnknownNas" class="form-check-label"></label>
+                        <div class="form-text">
+                            Accept a router that is not configured yet, using the default secret below. A router whose
+                            secret is unknown cannot be authenticated, so leave this off outside of testing.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Input.DefaultSharedSecret" class="form-label"></label>
+                        <input asp-for="Input.DefaultSharedSecret" class="form-control" />
+                        <div class="form-text">Only used for auto-registered routers.</div>
+                        <span asp-validation-for="Input.DefaultSharedSecret" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-0">
+                        <label asp-for="Input.MacAddressFormat" class="form-label"></label>
+                        <select asp-for="Input.MacAddressFormat" asp-items="Model.MacFormatOptions" class="form-select"></select>
+                        <div class="form-text">
+                            Display only. An inbound request is normalised before lookup, so a router may send any
+                            spelling and still match — this never affects whether a device authenticates.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">Reply attributes</div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        The VLAN travels in Tunnel-Private-Group-Id, but most equipment only acts on it when the other
+                        tunnel attributes are present too. Change these only if your hardware needs something different.
+                    </p>
+
+                    <div class="form-check mb-3">
+                        <input asp-for="Input.SendTunnelAttributes" class="form-check-input" />
+                        <label asp-for="Input.SendTunnelAttributes" class="form-check-label"></label>
+                        <div class="form-text">Tunnel-Type = 13, Tunnel-Medium-Type = 6 and Tunnel-Private-Group-Id = the VLAN.</div>
+                        <span asp-validation-for="Input.SendTunnelAttributes" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Input.TunnelTag" class="form-label"></label>
+                        <input asp-for="Input.TunnelTag" class="form-control" type="number" min="0" max="31" />
+                        <div class="form-text">1 suits most hardware. 0 sends the attributes untagged, for equipment that rejects a tag.</div>
+                        <span asp-validation-for="Input.TunnelTag" class="text-danger small"></span>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input asp-for="Input.SendEgressVlanId" class="form-check-input" />
+                        <label asp-for="Input.SendEgressVlanId" class="form-check-label"></label>
+                        <div class="form-text">Adds the RFC 4675 attribute. Some switches want this instead of the tunnel group.</div>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input asp-for="Input.SendServiceType" class="form-check-input" />
+                        <label asp-for="Input.SendServiceType" class="form-check-label"></label>
+                        <div class="form-text">Adds Service-Type = Framed, which a few NAS models require before applying a VLAN.</div>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input asp-for="Input.RequireMessageAuthenticator" class="form-check-input" />
+                        <label asp-for="Input.RequireMessageAuthenticator" class="form-check-label"></label>
+                        <div class="form-text">
+                            Rejects an Access-Request that omits the attribute. It is always verified when a router does
+                            send it; requiring it will lock out older hardware that never does.
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label asp-for="Input.AcctInterimIntervalSeconds" class="form-label"></label>
+                        <input asp-for="Input.AcctInterimIntervalSeconds" class="form-control" type="number" min="0" max="86400" />
+                        <div class="form-text">
+                            Asks the router for periodic accounting updates, which is what keeps live session counters
+                            moving. 0 leaves the router's own setting alone.
+                        </div>
+                        <span asp-validation-for="Input.AcctInterimIntervalSeconds" class="text-danger small"></span>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save settings</button>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card mb-4">
+                <div class="card-header">Access-Accept preview</div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">
+                        What a device on VLAN @Model.PreviewVlanId would receive. Reload after saving to refresh.
+                    </p>
+                    @if (Model.PreviewAttributes.Count == 0)
+                    {
+                        <p class="text-danger small mb-0">No VLAN attributes would be sent.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-unstyled mb-0 small font-monospace">
+                            @foreach (var attribute in Model.PreviewAttributes)
+                            {
+                                <li>@SimpleRadius.Pages.Settings.IndexModel.Describe(attribute)</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Startup settings</div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Read from <code>appsettings.json</code> when the process starts. Changing them needs a restart,
+                        so they are not editable here.
+                    </p>
+                    <dl class="row mb-0 small">
+                        <dt class="col-6">Authentication</dt>
+                        <dd class="col-6">UDP @Model.AuthPort</dd>
+                        <dt class="col-6">Accounting</dt>
+                        <dd class="col-6">UDP @Model.AcctPort</dd>
+                        <dt class="col-6">Listener address</dt>
+                        <dd class="col-6">@Model.Startup.ListenAddress</dd>
+                        <dt class="col-6">Admin UI</dt>
+                        <dd class="col-6 text-truncate" title="@Model.Startup.WebUiUrl">@Model.Startup.WebUiUrl</dd>
+                        <dt class="col-6">Database</dt>
+                        <dd class="col-6 text-truncate" title="@Model.Startup.DatabasePath">@Model.Startup.DatabasePath</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

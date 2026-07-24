@@ -1,0 +1,92 @@
+@page
+@using SimpleRadius.Pages
+@model SimpleRadius.Pages.VlanDefinitions.IndexModel
+@{
+    ViewData["Title"] = "VLANs";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">VLANs</h2>
+    <span class="text-muted small">
+        <span class="text-warning">★</span> marks the default VLAN for new devices
+        (<a asp-page="/Settings/Index">change</a>)
+    </span>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Add a VLAN</div>
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            <div class="col-md-3">
+                <label asp-for="Input.Name" class="form-label"></label>
+                <input asp-for="Input.Name" class="form-control" placeholder="Trusted" />
+                <span asp-validation-for="Input.Name" class="text-danger small"></span>
+            </div>
+            <div class="col-md-2">
+                <label asp-for="Input.VlanId" class="form-label"></label>
+                <input asp-for="Input.VlanId" class="form-control" type="number" min="1" max="4094" />
+                <span asp-validation-for="Input.VlanId" class="text-danger small"></span>
+            </div>
+            <div class="col-md-5">
+                <label asp-for="Input.Description" class="form-label"></label>
+                <input asp-for="Input.Description" class="form-control" placeholder="Optional" />
+                <span asp-validation-for="Input.Description" class="text-danger small"></span>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Add VLAN</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "name", "Name")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "vlan", "VLAN ID")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "description", "Description")' />
+                <th class="text-end">Clients</th>
+                <th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var vlan in Model.Vlans)
+        {
+            var clientCount = Model.ClientCounts.GetValueOrDefault(vlan.Id);
+            var isDefault = vlan.VlanId == Model.DefaultVlanId;
+            <tr>
+                <td>
+                    @if (isDefault)
+                    {
+                        <span class="text-warning" title="Default VLAN for new devices">★</span>
+                    }
+                    @vlan.Name
+                </td>
+                <td>@vlan.VlanId</td>
+                <td class="text-muted">@vlan.Description</td>
+                <td class="text-end">@clientCount</td>
+                <td class="text-end">
+                    <a class="btn btn-sm btn-outline-secondary" asp-page="Edit" asp-route-id="@vlan.Id">Edit</a>
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@vlan.Id" class="d-inline"
+                          onsubmit="return confirm('Delete VLAN @vlan.Name?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                @(clientCount > 0 || isDefault ? "disabled" : null)
+                                title="@(isDefault ? "The default VLAN cannot be deleted" : clientCount > 0 ? "Clients are still assigned" : "")">
+                            Delete
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        }
+        @if (Model.Vlans.Count == 0)
+        {
+            <tr><td colspan="5" class="text-muted">No VLANs defined yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

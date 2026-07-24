@@ -1,0 +1,108 @@
+@page
+@using SimpleRadius.Pages
+@model SimpleRadius.Pages.NetworkAccessServers.IndexModel
+@{
+    ViewData["Title"] = "Network Access Servers";
+}
+
+<h2>Network Access Servers</h2>
+<p class="text-muted">
+    Point each router or access point at this host on UDP @Model.AuthPort (authentication) and UDP @Model.AcctPort (accounting),
+    using the same shared secret you enter here.
+    @if (!Model.AutoRegisterEnabled)
+    {
+        <text>Requests from an address that is not listed below are ignored.</text>
+    }
+</p>
+
+<div class="card mb-4">
+    <div class="card-header">Add a NAS</div>
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            <div class="col-md-3">
+                <label asp-for="Input.Name" class="form-label"></label>
+                <input asp-for="Input.Name" class="form-control" placeholder="UniFi gateway" />
+                <span asp-validation-for="Input.Name" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Input.IpAddress" class="form-label"></label>
+                <input asp-for="Input.IpAddress" class="form-control" placeholder="192.168.1.1" />
+                <span asp-validation-for="Input.IpAddress" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Input.SharedSecret" class="form-label"></label>
+                <input asp-for="Input.SharedSecret" class="form-control" />
+                <span asp-validation-for="Input.SharedSecret" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3 d-flex align-items-end gap-3">
+                <div class="form-check">
+                    <input asp-for="Input.AccountingEnabled" class="form-check-input" />
+                    <label asp-for="Input.AccountingEnabled" class="form-check-label"></label>
+                </div>
+                <button type="submit" class="btn btn-primary ms-auto">Add NAS</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "name", "Name")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "ip", "IP")' />
+                <th>Shared secret</th>
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "accounting", "Accounting")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "seen", "Last seen")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "state", "State")' />
+                <th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var server in Model.Servers)
+        {
+            <tr>
+                <td>
+                    @server.Name
+                    @if (server.IsAutoRegistered)
+                    {
+                        <span class="badge text-bg-warning ms-1">auto-registered</span>
+                    }
+                </td>
+                <td><code>@server.IpAddress</code></td>
+                <td class="text-muted">••••••••</td>
+                <td>@(server.AccountingEnabled ? "Stored" : "Ignored")</td>
+                <td class="text-muted small">@(server.LastSeenUtc?.ToString("u") ?? "never")</td>
+                <td>
+                    @if (server.IsEnabled)
+                    {
+                        <span class="badge text-bg-success">enabled</span>
+                    }
+                    else
+                    {
+                        <span class="badge text-bg-danger">disabled</span>
+                    }
+                </td>
+                <td class="text-end text-nowrap">
+                    <a class="btn btn-sm btn-outline-secondary" asp-page="Edit" asp-route-id="@server.Id">Edit</a>
+                    <form method="post" asp-page-handler="Toggle" asp-route-id="@server.Id" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">@(server.IsEnabled ? "Disable" : "Enable")</button>
+                    </form>
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@server.Id" class="d-inline"
+                          onsubmit="return confirm('Delete NAS @server.Name?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        @if (Model.Servers.Count == 0)
+        {
+            <tr><td colspan="7" class="text-muted">No routers configured yet. Nothing will be authenticated until one is added.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,34 @@
+@page "{id:int}"
+@model SimpleRadius.Pages.VlanDefinitions.EditModel
+@{
+    ViewData["Title"] = "Edit VLAN";
+}
+
+<h2>Edit VLAN</h2>
+
+<form method="post" class="col-lg-6">
+    <input type="hidden" asp-for="Input.Id" />
+
+    <div class="mb-3">
+        <label asp-for="Input.Name" class="form-label"></label>
+        <input asp-for="Input.Name" class="form-control" />
+        <span asp-validation-for="Input.Name" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.VlanId" class="form-label"></label>
+        <input asp-for="Input.VlanId" class="form-control" type="number" min="1" max="4094" />
+        <span asp-validation-for="Input.VlanId" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.Description" class="form-label"></label>
+        <input asp-for="Input.Description" class="form-control" />
+        <span asp-validation-for="Input.Description" class="text-danger small"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a class="btn btn-outline-secondary" asp-page="Index">Cancel</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,142 @@
+@page
+@model SimpleRadius.Pages.IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h2 class="mb-3">Dashboard</h2>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Clients</div>
+                <div class="fs-3">@Model.ClientCount</div>
+                <a class="stretched-link" asp-page="/ClientDevices/Index">
+                    @(Model.DisabledClientCount > 0 ? $"{Model.DisabledClientCount} disabled" : "Manage clients")
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">VLANs</div>
+                <div class="fs-3">@Model.VlanCount</div>
+                <a class="stretched-link" asp-page="/VlanDefinitions/Index">Manage VLANs</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Enabled routers</div>
+                <div class="fs-3">@Model.NasCount</div>
+                <a class="stretched-link" asp-page="/NetworkAccessServers/Index">Manage NAS</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Active sessions</div>
+                <div class="fs-3">@Model.ActiveSessionCount</div>
+                <a class="stretched-link" asp-page="/Sessions/Index">View sessions</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.NasCount == 0)
+{
+    <div class="alert alert-warning">
+        No enabled network access server is configured, so every incoming request is ignored.
+        <a asp-page="/NetworkAccessServers/Index">Add your router</a> with the shared secret it is configured to use.
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Listener and policy</span>
+                <a class="small" asp-page="/Settings/Index">Settings</a>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-6">Authentication</dt>
+                    <dd class="col-6">UDP @Model.AuthPort</dd>
+                    <dt class="col-6">Accounting</dt>
+                    <dd class="col-6">UDP @Model.AcctPort</dd>
+                    <dt class="col-6">Bound to</dt>
+                    <dd class="col-6">@Model.Startup.ListenAddress</dd>
+                    <dt class="col-6">Default VLAN</dt>
+                    <dd class="col-6">@Model.Settings.DefaultVlanId</dd>
+                    <dt class="col-6">Unknown clients</dt>
+                    <dd class="col-6">@(Model.Settings.AutoCreateUnknownClients ? "Auto-created on default VLAN" : "Rejected")</dd>
+                    <dt class="col-6">Unknown routers</dt>
+                    <dd class="col-6">@(Model.Settings.AutoRegisterUnknownNas ? "Auto-registered" : "Ignored")</dd>
+                    <dt class="col-6">Data transferred</dt>
+                    <dd class="col-6">@SimpleRadius.Pages.Sessions.IndexModel.FormatBytes(Model.BytesTransferred)</dd>
+                    <dt class="col-6">Database</dt>
+                    <dd class="col-6 text-truncate" title="@Model.Startup.DatabasePath">@Model.Startup.DatabasePath</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header">Recently authenticated</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle">
+                    <thead>
+                        <tr><th>Client</th><th>VLAN</th><th>NAS</th><th>When</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var client in Model.RecentClients)
+                    {
+                        <tr>
+                            <td><code>@Model.FormatMac(client.Name)</code></td>
+                            <td>@(client.VlanDefinition?.VlanId.ToString() ?? "—")</td>
+                            <td class="small text-muted">@client.LastNasIpAddress</td>
+                            <td class="small text-muted">@client.LastSeenUtc?.ToString("u")</td>
+                        </tr>
+                    }
+                    @if (Model.RecentClients.Count == 0)
+                    {
+                        <tr><td colspan="4" class="text-muted">No authentications recorded yet.</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.RecentSessions.Count > 0)
+{
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Latest accounting activity</span>
+            <a class="small" asp-page="/Sessions/Index">All sessions</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead>
+                    <tr><th>Client</th><th>NAS</th><th>Status</th><th>Updated</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var session in Model.RecentSessions)
+                {
+                    <tr>
+                        <td><code>@Model.FormatMac(session.ClientName)</code></td>
+                        <td class="small text-muted">@session.NasName</td>
+                        <td>@SimpleRadius.Services.AccountingService.DescribeStatus(session.AcctStatusType)</td>
+                        <td class="small text-muted">@session.LastUpdateTime.ToString("u")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

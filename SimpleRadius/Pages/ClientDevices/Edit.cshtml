@@ -1,0 +1,53 @@
+@page "{id:int}"
+@model SimpleRadius.Pages.ClientDevices.EditModel
+@{
+    ViewData["Title"] = "Edit client";
+}
+
+<h2>Edit client</h2>
+
+<form method="post" class="col-lg-6">
+    <input type="hidden" asp-for="Input.Id" />
+
+    <div class="mb-3">
+        <label asp-for="Input.Name" class="form-label"></label>
+        <input asp-for="Input.Name" class="form-control" />
+        <span asp-validation-for="Input.Name" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.Description" class="form-label"></label>
+        <input asp-for="Input.Description" class="form-control" />
+        <span asp-validation-for="Input.Description" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.VlanDefinitionId" class="form-label"></label>
+        <select asp-for="Input.VlanDefinitionId" asp-items="Model.VlanOptions" class="form-select"></select>
+        <span asp-validation-for="Input.VlanDefinitionId" class="text-danger small"></span>
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="Input.IsEnabled" class="form-check-input" />
+        <label asp-for="Input.IsEnabled" class="form-check-label"></label>
+        <div class="form-text">A disabled client receives an Access-Reject instead of a VLAN.</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a class="btn btn-outline-secondary" asp-page="Index">Cancel</a>
+</form>
+
+@if (Model.Existing is { } existing)
+{
+    <dl class="row mt-4 col-lg-6 small text-muted">
+        <dt class="col-sm-4">First seen</dt>
+        <dd class="col-sm-8">@existing.CreatedUtc.ToString("u")</dd>
+        <dt class="col-sm-4">Last seen</dt>
+        <dd class="col-sm-8">@(existing.LastSeenUtc?.ToString("u") ?? "never")</dd>
+        <dt class="col-sm-4">Last NAS</dt>
+        <dd class="col-sm-8">@(existing.LastNasIpAddress ?? "—")</dd>
+        <dt class="col-sm-4">Authentications</dt>
+        <dd class="col-sm-8">@existing.AuthenticationCount</dd>
+    </dl>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,121 @@
+@page
+@using SimpleRadius.Pages
+@model SimpleRadius.Pages.ClientDevices.IndexModel
+@{
+    ViewData["Title"] = "Clients";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Clients</h2>
+    <form method="get" class="d-flex gap-2">
+        <input asp-for="Search" class="form-control form-control-sm" placeholder="Filter by MAC or description" />
+        <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Search))
+        {
+            <a class="btn btn-sm btn-outline-secondary" asp-page="Index">Clear</a>
+        }
+    </form>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Add a client</div>
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            <div class="col-md-3">
+                <label asp-for="Input.Name" class="form-label"></label>
+                <input asp-for="Input.Name" class="form-control" placeholder="@Model.FormatMac("aa:bb:cc:dd:ee:ff")" />
+                <div class="form-text">Any MAC spelling is accepted.</div>
+                <span asp-validation-for="Input.Name" class="text-danger small"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.Description" class="form-label"></label>
+                <input asp-for="Input.Description" class="form-control" placeholder="Optional" />
+                <span asp-validation-for="Input.Description" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Input.VlanDefinitionId" class="form-label"></label>
+                <select asp-for="Input.VlanDefinitionId" asp-items="Model.VlanOptions" class="form-select"></select>
+                <span asp-validation-for="Input.VlanDefinitionId" class="text-danger small"></span>
+            </div>
+            <div class="col-md-2 d-flex align-items-start">
+                <button type="submit" class="btn btn-primary w-100 mt-4">Add client</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "name", "Identity")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "description", "Description")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "vlan", "VLAN")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "seen", "Last seen")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "auths", "Auths", "text-end")' />
+                <partial name="_SortHeader" model='new SortHeader(Model.Sort, "state", "State")' />
+                <th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var client in Model.Clients)
+        {
+            <tr>
+                <td>
+                    <code>@Model.FormatMac(client.Name)</code>
+                    @if (client.IsAutoCreated)
+                    {
+                        <span class="badge text-bg-info ms-1">auto</span>
+                    }
+                </td>
+                <td class="text-muted">@client.Description</td>
+                <td>
+                    @if (client.VlanDefinition is not null)
+                    {
+                        <span>@client.VlanDefinition.Name (@client.VlanDefinition.VlanId)</span>
+                    }
+                </td>
+                <td class="text-muted small">
+                    @if (client.LastSeenUtc is { } seen)
+                    {
+                        <span title="@client.LastNasIpAddress">@seen.ToString("u")</span>
+                    }
+                    else
+                    {
+                        <span>never</span>
+                    }
+                </td>
+                <td class="text-end">@client.AuthenticationCount</td>
+                <td>
+                    @if (client.IsEnabled)
+                    {
+                        <span class="badge text-bg-success">enabled</span>
+                    }
+                    else
+                    {
+                        <span class="badge text-bg-danger">disabled</span>
+                    }
+                </td>
+                <td class="text-end text-nowrap">
+                    <a class="btn btn-sm btn-outline-secondary" asp-page="Edit" asp-route-id="@client.Id">Edit</a>
+                    <form method="post" asp-page-handler="Toggle" asp-route-id="@client.Id" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">@(client.IsEnabled ? "Disable" : "Enable")</button>
+                    </form>
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@client.Id" class="d-inline"
+                          onsubmit="return confirm('Delete client @Model.FormatMac(client.Name)?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        @if (Model.Clients.Count == 0)
+        {
+            <tr><td colspan="7" class="text-muted">No clients yet. Devices are added automatically the first time they authenticate.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
