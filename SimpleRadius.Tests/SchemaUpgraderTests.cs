@@ -30,11 +30,21 @@ public class SchemaUpgraderTests
             await drop.ExecuteNonQueryAsync();
         }
 
-        // Group was added after Notes; drop it too so the test covers a database older than both.
-        await using (var dropGroup = connection.CreateCommand())
+        // Later additions: the Group column, the accounting-session columns, and the SsidVlanRules table.
+        // Dropping them all mimics a database older than every one of these changes.
+        var laterChanges = new[]
         {
-            dropGroup.CommandText = "ALTER TABLE \"VlanDefinitions\" DROP COLUMN \"Group\";";
-            await dropGroup.ExecuteNonQueryAsync();
+            "ALTER TABLE \"VlanDefinitions\" DROP COLUMN \"Group\";",
+            "ALTER TABLE \"AccountingSessions\" DROP COLUMN \"Ssid\";",
+            "ALTER TABLE \"AccountingSessions\" DROP COLUMN \"NasIdentifier\";",
+            "ALTER TABLE \"AccountingSessions\" DROP COLUMN \"NasPortType\";",
+            "DROP TABLE \"SsidVlanRules\";"
+        };
+        foreach (var sql in laterChanges)
+        {
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            await cmd.ExecuteNonQueryAsync();
         }
 
         return (connection, options);
@@ -45,6 +55,27 @@ public class SchemaUpgraderTests
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}';";
         return Convert.ToInt64(await cmd.ExecuteScalarAsync()) > 0;
+    }
+
+    private static async Task<bool> HasTableAsync(SqliteConnection connection, string table)
+    {
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table}';";
+        return Convert.ToInt64(await cmd.ExecuteScalarAsync()) > 0;
+    }
+
+    private static async Task<List<string>> ColumnsAsync(SqliteConnection connection, string table)
+    {
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"SELECT name FROM pragma_table_info('{table}') ORDER BY name;";
+        var names = new List<string>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            names.Add(reader.GetString(0));
+        }
+
+        return names;
     }
 
     [Fact]
@@ -62,6 +93,44 @@ public class SchemaUpgraderTests
             Assert.True(await HasColumnAsync(connection, "NetworkAccessServers", "Notes"));
             Assert.True(await HasColumnAsync(connection, "VlanDefinitions", "Notes"));
             Assert.True(await HasColumnAsync(connection, "VlanDefinitions", "Group"));
+            Assert.True(await HasColumnAsync(connection, "AccountingSessions", "Ssid"));
+            Assert.True(await HasColumnAsync(connection, "AccountingSessions", "NasIdentifier"));
+            Assert.True(await HasColumnAsync(connection, "AccountingSessions", "NasPortType"));
+            Assert.True(await HasTableAsync(connection, "SsidVlanRules"));
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task RecreatedTableMatchesTheModelSchema()
+    {
+        // Guards against drift between the hand-written CREATE TABLE in the upgrader and what EF Core
+        // builds for a fresh database.
+        List<string> fresh;
+        await using (var freshDb = await TestDatabase.CreateAsync())
+        {
+            fresh = await ColumnsAsync((SqliteConnection)freshDb.Db.Database.GetDbConnection(), "SsidVlanRules");
+        }
+
+        var (connection, options) = await LegacyDatabaseAsync();
+        try
+        {
+            Assert.False(await HasTableAsync(connection, "SsidVlanRules"));
+
+            await using var db = new RadiusDbContext(options);
+            await SchemaUpgrader.ApplyAsync(db, NullLogger.Instance);
+
+            var upgraded = await ColumnsAsync(connection, "SsidVlanRules");
+            Assert.Equal(fresh, upgraded);
+
+            // And the recreated table is usable through EF.
+            var vlan = await SeedVlanAsync(db);
+            db.SsidVlanRules.Add(new SsidVlanRule { Ssid = "IoT", VlanDefinitionId = vlan.Id });
+            await db.SaveChangesAsync();
+            Assert.Equal("IoT", (await db.SsidVlanRules.SingleAsync()).Ssid);
         }
         finally
         {

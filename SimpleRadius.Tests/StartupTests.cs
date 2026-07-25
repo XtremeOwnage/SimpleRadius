@@ -28,6 +28,7 @@ public class StartupTests : IClassFixture<SimpleRadiusApplication>
     [InlineData("/Sessions")]
     [InlineData("/Settings")]
     [InlineData("/Backup")]
+    [InlineData("/SsidRules")]
     [InlineData("/VlanDefinitions?grouped=true")]
     public async Task EveryAdminPageIsServed(string path)
     {

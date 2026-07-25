@@ -67,6 +67,28 @@ public class RadiusPolicyService
     }
 
     /// <summary>
+    /// Picks the default VLAN for a new device: the VLAN mapped to <paramref name="ssid"/> if a rule
+    /// matches, otherwise the global default. Only used when auto-creating an unknown client — a known
+    /// client keeps its own assignment.
+    /// </summary>
+    public async Task<VlanDefinition> ResolveDefaultVlanAsync(string? ssid, CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrWhiteSpace(ssid))
+        {
+            var rule = await _db.SsidVlanRules
+                .Include(r => r.VlanDefinition)
+                .FirstOrDefaultAsync(r => r.Ssid == ssid, cancellationToken);
+
+            if (rule?.VlanDefinition is not null)
+            {
+                return rule.VlanDefinition;
+            }
+        }
+
+        return await GetOrCreateDefaultVlanAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Resolves the NAS a request arrived from. Unknown sources return null unless
     /// <see cref="ServerSettings.AutoRegisterUnknownNas"/> is enabled.
     /// </summary>
@@ -116,6 +138,7 @@ public class RadiusPolicyService
     public async Task<AuthorizationResult> AuthorizeAsync(
         string identity,
         string? nasIpAddress,
+        string? ssid = null,
         CancellationToken cancellationToken = default)
     {
         var name = MacAddress.Normalize(identity);
@@ -135,7 +158,7 @@ public class RadiusPolicyService
                 return AuthorizationResult.Reject("unknown client and auto-creation is disabled");
             }
 
-            client = await CreateClientAsync(name, cancellationToken);
+            client = await CreateClientAsync(name, ssid, cancellationToken);
         }
 
         if (!client.IsEnabled)
@@ -172,14 +195,17 @@ public class RadiusPolicyService
             .FirstOrDefaultAsync(c => c.Name == name, cancellationToken);
     }
 
-    private async Task<ClientDevice> CreateClientAsync(string name, CancellationToken cancellationToken)
+    private async Task<ClientDevice> CreateClientAsync(string name, string? ssid, CancellationToken cancellationToken)
     {
-        var vlan = await GetOrCreateDefaultVlanAsync(cancellationToken);
+        var vlan = await ResolveDefaultVlanAsync(ssid, cancellationToken);
+        var bySsid = !string.IsNullOrWhiteSpace(ssid) && vlan.VlanId != _settings.DefaultVlanId;
 
         var client = new ClientDevice
         {
             Name = name,
-            Description = "Seen for the first time; assigned the default VLAN.",
+            Description = bySsid
+                ? $"Seen for the first time on SSID '{ssid}'."
+                : "Seen for the first time; assigned the default VLAN.",
             VlanDefinitionId = vlan.Id,
             VlanDefinition = vlan,
             IsAutoCreated = true,
@@ -191,7 +217,11 @@ public class RadiusPolicyService
         try
         {
             await _db.SaveChangesAsync(cancellationToken);
-            _logger?.LogInformation("Created client {Client} on default VLAN {VlanId}", name, vlan.VlanId);
+            _logger?.LogInformation(
+                "Created client {Client} on VLAN {VlanId}{BySsid}",
+                name,
+                vlan.VlanId,
+                bySsid ? $" (SSID rule for '{ssid}')" : " (default)");
         }
         catch (DbUpdateException)
         {

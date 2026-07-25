@@ -131,7 +131,10 @@ public sealed class RadiusRequestHandler
             return Reject(packet, nas, "No client identity supplied");
         }
 
-        var result = await policy.AuthorizeAsync(identity, nas.IpAddress, cancellationToken);
+        // The SSID (from Called-Station-Id) can steer the default VLAN for a device seen for the first time.
+        var ssid = StationId.ExtractSsid(packet.GetString(RadiusAttributeType.CalledStationId));
+
+        var result = await policy.AuthorizeAsync(identity, nas.IpAddress, ssid, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         if (!result.IsAccepted)
@@ -141,10 +144,11 @@ public sealed class RadiusRequestHandler
         }
 
         _logger.LogInformation(
-            "Accepted {Identity} from {Nas} on VLAN {VlanId}",
+            "Accepted {Identity} from {Nas} on VLAN {VlanId}{Ssid}",
             result.Client!.Name,
             nas.Name,
-            result.VlanId);
+            result.VlanId,
+            string.IsNullOrEmpty(ssid) ? string.Empty : $" (SSID '{ssid}')");
 
         return packet.BuildResponse(
             RadiusCode.AccessAccept,

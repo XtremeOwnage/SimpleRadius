@@ -14,6 +14,7 @@ public class RadiusDbContext : DbContext
     public DbSet<NetworkAccessServer> NetworkAccessServers => Set<NetworkAccessServer>();
     public DbSet<AccountingSession> AccountingSessions => Set<AccountingSession>();
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
+    public DbSet<SsidVlanRule> SsidVlanRules => Set<SsidVlanRule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,6 +58,17 @@ public class RadiusDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(a => a.ClientDeviceId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<SsidVlanRule>(entity =>
+        {
+            entity.HasIndex(r => r.Ssid).IsUnique();
+
+            // A rule must resolve to a VLAN, so a VLAN a rule points at cannot be deleted.
+            entity.HasOne(r => r.VlanDefinition)
+                .WithMany()
+                .HasForeignKey(r => r.VlanDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         base.OnModelCreating(modelBuilder);

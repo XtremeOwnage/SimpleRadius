@@ -20,6 +20,11 @@ All notable changes are recorded here. The format follows
   address, so a file both restores onto an empty instance and merges into a populated one; server
   settings are only applied when explicitly requested. The format is human-editable, so a configuration
   can be hand-written or templated.
+- **Default VLAN by SSID**: optional rules mapping an SSID (from Called-Station-Id) to a VLAN, on a new
+  page linked from VLANs. A device seen for the first time on a matching SSID is placed on that VLAN
+  instead of the global default; a device that already has its own VLAN keeps it.
+- Sessions now record and show the **SSID**, **NAS-Identifier** and **NAS-Port-Type** reported by the
+  NAS, and session search matches the SSID and NAS-Identifier.
 
 ### Changed
 

@@ -79,6 +79,19 @@ The VLAN itself is only in **Tunnel-Private-Group-Id**, as ASCII text, not a bin
 must be present or most equipment ignores it, and all three share a tag so the NAS reads them as one set.
 This is exactly what a MikroTik user group or a UniFi RADIUS profile expects.
 
+### Which VLAN a new device gets
+
+A known client uses its own VLAN assignment. A device seen for the first time is auto-created and placed
+on a **default** VLAN, chosen in this order:
+
+1. If the request carried an SSID (parsed from Called-Station-Id, e.g. `AA-BB-CC-DD-EE-FF:IoT`) and a
+   **Default VLAN by SSID** rule matches it exactly, that rule's VLAN.
+2. Otherwise the global default VLAN from settings.
+
+SSID rules only steer this first-sight default; they never override a client that already has a VLAN. The
+SSID, along with the NAS-Identifier and NAS-Port-Type the router reports, is also recorded on the device's
+accounting sessions.
+
 ### Compatibility toggles
 
 | Setting | When you need it |

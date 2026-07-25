@@ -1,0 +1,80 @@
+@page
+@model SimpleRadius.Pages.SsidRules.IndexModel
+@{
+    ViewData["Title"] = "Default VLAN by SSID";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Default VLAN by SSID</h2>
+    <a class="small" asp-page="/VlanDefinitions/Index">VLANs</a>
+</div>
+
+<p class="text-muted">
+    When a device is seen for the first time on one of these SSIDs, it is placed on the matching VLAN
+    instead of the global default (VLAN @Model.DefaultVlanId). This only sets the default for a new device
+    — a client that already has its own VLAN keeps it. The SSID comes from Called-Station-Id and is matched
+    exactly.
+</p>
+
+<div class="card mb-4">
+    <div class="card-header">Add a rule</div>
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            <div class="col-md-4">
+                <label asp-for="Input.Ssid" class="form-label"></label>
+                <input asp-for="Input.Ssid" class="form-control" placeholder="IoT" />
+                <span asp-validation-for="Input.Ssid" class="text-danger small"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.VlanDefinitionId" class="form-label"></label>
+                <select asp-for="Input.VlanDefinitionId" asp-items="Model.VlanOptions" class="form-select"></select>
+                <span asp-validation-for="Input.VlanDefinitionId" class="text-danger small"></span>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Add rule</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>SSID</th>
+                <th>Default VLAN</th>
+                <th>Notes</th>
+                <th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rule in Model.Rules)
+        {
+            <tr>
+                <td><code>@rule.Ssid</code></td>
+                <td>
+                    @if (rule.VlanDefinition is not null)
+                    {
+                        <span>@rule.VlanDefinition.Name (@rule.VlanDefinition.VlanId)</span>
+                    }
+                </td>
+                <td class="text-muted">@rule.Notes</td>
+                <td class="text-end">
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@rule.Id" class="d-inline"
+                          onsubmit="return confirm('Remove the rule for SSID @rule.Ssid?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        @if (Model.Rules.Count == 0)
+        {
+            <tr><td colspan="4" class="text-muted">No SSID rules. New devices use the global default VLAN.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
