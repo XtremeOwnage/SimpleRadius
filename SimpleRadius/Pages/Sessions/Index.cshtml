@@ -18,6 +18,7 @@
                     <tr>
                         <partial name="_SortHeader" model='new SortHeader(Model.Sort, "client", "Client")' />
                         <partial name="_SortHeader" model='new SortHeader(Model.Sort, "nas", "NAS")' />
+                        <partial name="_SortHeader" model='new SortHeader(Model.Sort, "ssid", "SSID")' />
                         <partial name="_SortHeader" model='new SortHeader(Model.Sort, "vlan", "VLAN")' />
                         <partial name="_SortHeader" model='new SortHeader(Model.Sort, "started", "Started")' />
                         <partial name="_SortHeader" model='@(new SortHeader(Model.Sort, active ? "updated" : "stopped", active ? "Last update" : "Stopped"))' />
@@ -42,7 +43,16 @@
                                 <code>@Model.FormatClient(session.ClientName)</code>
                             }
                         </td>
-                        <td>@session.NasName</td>
+                        <td>
+                            @session.NasName
+                            @if (!string.IsNullOrEmpty(session.NasIdentifier) || !string.IsNullOrEmpty(session.NasPortType))
+                            {
+                                <div class="small text-muted">
+                                    @session.NasIdentifier@(!string.IsNullOrEmpty(session.NasIdentifier) && !string.IsNullOrEmpty(session.NasPortType) ? " · " : "")@session.NasPortType
+                                </div>
+                            }
+                        </td>
+                        <td>@(session.Ssid ?? "—")</td>
                         <td>@(session.VlanId?.ToString() ?? "—")</td>
                         <td class="small text-muted">@session.StartTime.ToString("u")</td>
                         <td class="small text-muted">@((active ? session.LastUpdateTime : session.StopTime ?? session.LastUpdateTime).ToString("u"))</td>
@@ -54,7 +64,7 @@
                 }
                 @if (sessions.Count == 0)
                 {
-                    <tr><td colspan="9" class="text-muted">Nothing here yet.</td></tr>
+                    <tr><td colspan="10" class="text-muted">Nothing here yet.</td></tr>
                 }
                 </tbody>
             </table>
@@ -66,7 +76,7 @@
     <h2 class="mb-0">Sessions</h2>
     <form method="get" class="d-flex gap-2">
         <input asp-for="Search" class="form-control form-control-sm" style="min-width: 18rem;"
-               placeholder="Search client, MAC, NAS or session ID" />
+               placeholder="Search client, MAC, NAS, SSID or session ID" />
         <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
         @if (!string.IsNullOrWhiteSpace(Model.Search))
         {

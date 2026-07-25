@@ -30,10 +30,25 @@ public class AccountingSession
     [Display(Name = "Calling station")]
     public string? CallingStationId { get; set; }
 
-    /// <summary>Called-Station-Id, typically the SSID or the NAS port MAC.</summary>
+    /// <summary>Called-Station-Id, typically the AP's MAC plus SSID, or the NAS port MAC.</summary>
     [StringLength(128)]
     [Display(Name = "Called station")]
     public string? CalledStationId { get; set; }
+
+    /// <summary>SSID parsed from Called-Station-Id, when the connection is wireless.</summary>
+    [StringLength(64)]
+    [Display(Name = "SSID")]
+    public string? Ssid { get; set; }
+
+    /// <summary>NAS-Identifier — the name the reporting NAS calls itself (often a hostname or AP name).</summary>
+    [StringLength(128)]
+    [Display(Name = "NAS identifier")]
+    public string? NasIdentifier { get; set; }
+
+    /// <summary>NAS-Port-Type as a readable name, e.g. "Wireless 802.11" or "Ethernet".</summary>
+    [StringLength(32)]
+    [Display(Name = "Port type")]
+    public string? NasPortType { get; set; }
 
     [Required]
     [StringLength(128)]

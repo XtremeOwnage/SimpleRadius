@@ -18,6 +18,7 @@ public class IndexModel : PageModel
         ["updated"] = s => s.LastUpdateTime,
         ["client"] = s => s.ClientName,
         ["nas"] = s => s.NasName,
+        ["ssid"] = s => s.Ssid,
         ["vlan"] = s => s.VlanId,
         ["started"] = s => s.StartTime,
         ["stopped"] = s => s.StopTime,
@@ -146,6 +147,8 @@ public class IndexModel : PageModel
             || (s.ClientDevice != null && s.ClientDevice.Description != null && EF.Functions.Like(s.ClientDevice.Description, pattern))
             || EF.Functions.Like(s.NasName, pattern)
             || EF.Functions.Like(s.NasIpAddress, pattern)
+            || (s.NasIdentifier != null && EF.Functions.Like(s.NasIdentifier, pattern))
+            || (s.Ssid != null && EF.Functions.Like(s.Ssid, pattern))
             || EF.Functions.Like(s.SessionId, pattern)
             || (s.CallingStationId != null && EF.Functions.Like(s.CallingStationId, pattern))
             || (s.CalledStationId != null && EF.Functions.Like(s.CalledStationId, pattern)));

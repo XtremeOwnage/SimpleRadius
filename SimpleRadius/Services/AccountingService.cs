@@ -62,10 +62,15 @@ public class AccountingService
             _db.AccountingSessions.Add(session);
         }
 
+        var calledStation = packet.GetString(RadiusAttributeType.CalledStationId);
+
         session.ClientName = identity;
         session.ClientDeviceId = client?.Id;
         session.CallingStationId = packet.GetString(RadiusAttributeType.CallingStationId);
-        session.CalledStationId = packet.GetString(RadiusAttributeType.CalledStationId);
+        session.CalledStationId = calledStation;
+        session.Ssid = StationId.ExtractSsid(calledStation);
+        session.NasIdentifier = packet.GetString(RadiusAttributeType.NasIdentifier);
+        session.NasPortType = StationId.DescribeNasPortType(packet.GetUInt32(RadiusAttributeType.NasPortType));
         session.NasName = nas.Name;
         session.VlanId = client?.VlanDefinition?.VlanId ?? session.VlanId;
         session.AcctStatusType = statusType;
