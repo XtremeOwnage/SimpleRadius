@@ -299,7 +299,7 @@ jobs:
             type=semver,pattern={{major}},value=v${{ needs.version.outputs.version }}
             type=raw,value=latest,enable=${{ needs.version.outputs.is_latest == 'true' }}
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         env:
           # Otherwise this uploads a ".dockerbuild" record artifact that is not a normal zip, which
           # breaks the release job's artifact download when it tries to extract everything.
