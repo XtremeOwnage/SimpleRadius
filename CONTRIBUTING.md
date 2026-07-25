@@ -115,11 +115,32 @@ git push origin v1.2.3
 
 The tag drives everything. [`release.yml`](.github/workflows/release.yml) derives the version from it and
 stamps it into the assemblies, the container labels and tags, the archive names and the deb/rpm metadata,
-so a release cannot ship mismatched numbers. A tag containing a hyphen (`v1.2.3-rc.1`) is published as a
-pre-release and does not move the `latest` container tag.
+so a release cannot ship mismatched numbers.
 
 Artifacts produced per release: multi-arch container image on GHCR, self-contained binaries for linux
 x64/arm64/arm, win x64/arm64 and osx-arm64, plus deb and rpm packages — each with a SHA-256 checksum.
+
+#### What gets tagged
+
+One git tag (`v1.2.3`) produces this set of **container tags** on GHCR:
+
+| Tag | Points at | Moves? |
+| --- | --- | --- |
+| `1.2.3` | exactly this release | no — immutable |
+| `1.2` | the newest patch of the 1.2 line | yes |
+| `1` | the newest release of the 1.x line | yes |
+| `latest` | the newest **stable** release | yes |
+
+`docker pull ghcr.io/xtremeownage/simpleradius:1` follows the 1.x line and picks up patches;
+pin `:1.2.3` to freeze an exact build.
+
+**Pre-releases** (`v1.2.3-rc.1`, any tag with a hyphen) are the exception: they publish only the exact
+`1.2.3-rc.1` container tag and are marked pre-release on GitHub. They never move `1.2`, `1` or `latest`.
+
+**`latest` tracks the newest stable version, not the most recently pushed.** Releasing a back-patch to an
+older line (say `v1.1.5` after `v1.2.0` already exists) publishes `1.1.5` and moves `1.1`, but leaves
+`latest`, `1` and the GitHub "Latest" badge on the higher `1.2.0`. The workflow decides this by comparing
+the version against every existing tag, so releases do not have to be cut in strict order.
 
 ## Things that would genuinely help
 

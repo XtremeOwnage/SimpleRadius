@@ -30,7 +30,13 @@ jobs:
     outputs:
       version: ${{ steps.derive.outputs.version }}
       prerelease: ${{ steps.derive.outputs.prerelease }}
+      is_latest: ${{ steps.derive.outputs.is_latest }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          # All tags, so we can tell whether this version is the newest stable release.
+          fetch-depth: 0
+
       - id: derive
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -45,12 +51,28 @@ jobs:
           fi
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
+
           # A hyphen means a pre-release identifier such as 1.2.3-rc.1.
           case "$version" in
-            *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;;
-            *)   echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
+            *-*) prerelease=true ;;
+            *)   prerelease=false ;;
           esac
-          echo "Building version $version"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+          # "latest" (the container tag and the GitHub Release badge) belongs to the newest *stable*
+          # release. A pre-release never gets it, and a back-patch of an older line (say 1.1.5 released
+          # after 1.2.0) must not steal it from the higher version.
+          is_latest=false
+          if [ "$prerelease" = "false" ]; then
+            highest=$(git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -1)
+            newest=$(printf '%s\n%s\n' "$version" "$highest" | sort -V | tail -1)
+            if [ -z "$highest" ] || [ "$newest" = "$version" ]; then
+              is_latest=true
+            fi
+          fi
+          echo "is_latest=$is_latest" >> "$GITHUB_OUTPUT"
+
+          echo "Building version $version (prerelease=$prerelease, latest=$is_latest)"
 
   test:
     needs: version
@@ -267,11 +289,15 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
+          # Publishes, for a stable release, the immutable patch tag plus the moving minor, major and
+          # latest tags: 1.2.3, 1.2, 1, latest. metadata-action withholds the minor/major/latest tags for
+          # a pre-release (so 1.2.3-rc.1 only ever tags 1.2.3-rc.1), and the latest tag is further gated on
+          # this being the newest stable version.
           tags: |
             type=semver,pattern={{version}},value=v${{ needs.version.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=v${{ needs.version.outputs.version }}
             type=semver,pattern={{major}},value=v${{ needs.version.outputs.version }}
-            type=raw,value=latest,enable=${{ needs.version.outputs.prerelease == 'false' }}
+            type=raw,value=latest,enable=${{ needs.version.outputs.is_latest == 'true' }}
 
       - uses: docker/build-push-action@v6
         env:
@@ -325,6 +351,9 @@ jobs:
           name: v${{ needs.version.outputs.version }}
           tag_name: v${{ needs.version.outputs.version }}
           prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
+          # Mark this the "Latest" release only when it is the newest stable version, so the badge and
+          # the /releases/latest redirect never point at a pre-release or a back-patched older line.
+          make_latest: ${{ needs.version.outputs.is_latest }}
           generate_release_notes: true
           files: artifacts/**/*
           body: |
