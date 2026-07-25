@@ -145,7 +145,7 @@ jobs:
           (cd artifacts && sha256sum "$name.${{ matrix.archive }}" > "$name.${{ matrix.archive }}.sha256")
           ls -lh artifacts
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: binaries-${{ matrix.rid }}
           path: artifacts/*
@@ -265,7 +265,7 @@ jobs:
           /opt/simpleradius/SimpleRadius --healthcheck || echo "probe returned non-zero as expected"
           sudo dpkg -r simpleradius
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-${{ matrix.rid }}
           path: artifacts/*
