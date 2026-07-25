@@ -18,8 +18,17 @@ public class BackupDocument
 
     public List<BackupNas> NetworkAccessServers { get; set; } = [];
 
+    /// <summary>SSID-to-VLAN default rules.</summary>
+    public List<BackupSsidRule> SsidRules { get; set; } = [];
+
     /// <summary>Server settings. Present in an export; only applied on import when explicitly requested.</summary>
     public BackupSettings? Settings { get; set; }
+
+    /// <summary>
+    /// Accounting sessions. Only present when the export opted to include them, and only restored when the
+    /// import opts in — the history can be large and is separate from the configuration.
+    /// </summary>
+    public List<BackupSession>? Sessions { get; set; }
 }
 
 public class BackupVlan
@@ -60,6 +69,42 @@ public class BackupNas
     public string? Notes { get; set; }
 }
 
+public class BackupSsidRule
+{
+    public string Ssid { get; set; } = string.Empty;
+
+    /// <summary>References a VLAN by its VLAN number, not an internal id.</summary>
+    public int VlanId { get; set; }
+
+    public string? Notes { get; set; }
+}
+
+/// <summary>One accounting session. References its client by identity, not an internal id.</summary>
+public class BackupSession
+{
+    public string SessionId { get; set; } = string.Empty;
+    public string ClientName { get; set; } = string.Empty;
+    public string? CallingStationId { get; set; }
+    public string? CalledStationId { get; set; }
+    public string? Ssid { get; set; }
+    public string? NasIdentifier { get; set; }
+    public string? NasPortType { get; set; }
+    public string NasName { get; set; } = string.Empty;
+    public string NasIpAddress { get; set; } = string.Empty;
+    public int? VlanId { get; set; }
+    public int AcctStatusType { get; set; }
+    public bool IsActive { get; set; }
+    public long BytesIn { get; set; }
+    public long BytesOut { get; set; }
+    public long PacketsIn { get; set; }
+    public long PacketsOut { get; set; }
+    public long SessionSeconds { get; set; }
+    public uint? TerminateCause { get; set; }
+    public DateTime StartTime { get; set; }
+    public DateTime LastUpdateTime { get; set; }
+    public DateTime? StopTime { get; set; }
+}
+
 public class BackupSettings
 {
     public int DefaultVlanId { get; set; }
@@ -87,6 +132,9 @@ public class ImportOptions
 {
     /// <summary>When true, the server settings in the document overwrite the current ones.</summary>
     public bool ImportSettings { get; set; }
+
+    /// <summary>When true, accounting sessions in the document are restored.</summary>
+    public bool ImportAccounting { get; set; }
 }
 
 /// <summary>Summary of what an import changed, surfaced to the operator.</summary>
@@ -98,11 +146,15 @@ public class ImportResult
     public int ClientsUpdated { get; set; }
     public int NasAdded { get; set; }
     public int NasUpdated { get; set; }
+    public int SsidRulesAdded { get; set; }
+    public int SsidRulesUpdated { get; set; }
+    public int SessionsImported { get; set; }
     public bool SettingsApplied { get; set; }
 
     /// <summary>Non-fatal issues, e.g. a client referencing a VLAN that was not in the file.</summary>
     public List<string> Warnings { get; } = [];
 
     public int TotalChanged =>
-        VlansAdded + VlansUpdated + ClientsAdded + ClientsUpdated + NasAdded + NasUpdated;
+        VlansAdded + VlansUpdated + ClientsAdded + ClientsUpdated + NasAdded + NasUpdated
+        + SsidRulesAdded + SsidRulesUpdated + SessionsImported;
 }

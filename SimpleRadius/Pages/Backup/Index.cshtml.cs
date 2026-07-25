@@ -23,6 +23,9 @@ public class IndexModel : PageModel
     [BindProperty]
     public bool ImportSettings { get; set; }
 
+    [BindProperty]
+    public bool ImportAccounting { get; set; }
+
     [TempData]
     public string? StatusMessage { get; set; }
 
@@ -33,13 +36,13 @@ public class IndexModel : PageModel
     {
     }
 
-    public async Task<IActionResult> OnGetExportAsync(string format, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetExportAsync(string format, bool accounting, CancellationToken cancellationToken)
     {
         var backupFormat = string.Equals(format, "yaml", StringComparison.OrdinalIgnoreCase)
             ? BackupFormat.Yaml
             : BackupFormat.Json;
 
-        var document = await _backup.ExportAsync(cancellationToken);
+        var document = await _backup.ExportAsync(includeAccounting: accounting, cancellationToken);
         var content = _backup.Serialize(document, backupFormat);
 
         var extension = backupFormat == BackupFormat.Yaml ? "yaml" : "json";
@@ -80,12 +83,20 @@ public class IndexModel : PageModel
             return RedirectToPage();
         }
 
-        var result = await _backup.ImportAsync(document, new ImportOptions { ImportSettings = ImportSettings }, cancellationToken);
+        var result = await _backup.ImportAsync(
+            document,
+            new ImportOptions { ImportSettings = ImportSettings, ImportAccounting = ImportAccounting },
+            cancellationToken);
 
         var summary = new StringBuilder($"Imported: {result.TotalChanged} record(s) changed ");
         summary.Append($"(VLANs +{result.VlansAdded}/~{result.VlansUpdated}, ");
         summary.Append($"clients +{result.ClientsAdded}/~{result.ClientsUpdated}, ");
-        summary.Append($"NAS +{result.NasAdded}/~{result.NasUpdated})");
+        summary.Append($"NAS +{result.NasAdded}/~{result.NasUpdated}, ");
+        summary.Append($"SSID rules +{result.SsidRulesAdded}/~{result.SsidRulesUpdated})");
+        if (result.SessionsImported > 0)
+        {
+            summary.Append($", {result.SessionsImported} accounting session(s)");
+        }
         if (result.SettingsApplied)
         {
             summary.Append(", settings applied");

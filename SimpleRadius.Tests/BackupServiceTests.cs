@@ -22,6 +22,8 @@ public class BackupServiceTests
         var lamp = await fixture.AddClientAsync("44:4f:8e:c8:9a:ac", iot);
         lamp.Description = "Office Lamp";
         lamp.Notes = "desk";
+
+        fixture.Db.SsidVlanRules.Add(new SsidVlanRule { Ssid = "IoT", VlanDefinitionId = iot.Id, Notes = "iot wifi" });
         await fixture.Db.SaveChangesAsync();
         return fixture;
     }
@@ -46,6 +48,7 @@ public class BackupServiceTests
         Assert.Equal(2, result.VlansAdded);
         Assert.Equal(1, result.ClientsAdded);
         Assert.Equal(1, result.NasAdded);
+        Assert.Equal(1, result.SsidRulesAdded);
 
         var vlan = await target.Db.VlanDefinitions.SingleAsync(v => v.VlanId == 306);
         Assert.Equal("V_IOT_Generic", vlan.Name);
@@ -58,6 +61,105 @@ public class BackupServiceTests
 
         var nas = await target.Db.NetworkAccessServers.SingleAsync();
         Assert.Equal("unifi-secret", nas.SharedSecret);
+
+        var rule = await target.Db.SsidVlanRules.Include(r => r.VlanDefinition).SingleAsync();
+        Assert.Equal("IoT", rule.Ssid);
+        Assert.Equal(306, rule.VlanDefinition!.VlanId);
+    }
+
+    [Fact]
+    public async Task AccountingIsExcludedByDefaultAndIncludedOnlyWhenRequested()
+    {
+        await using var fixture = await SeededAsync();
+        await SeedSessionAsync(fixture, "session-1", "44:4f:8e:c8:9a:ac");
+
+        var withoutAccounting = await Service(fixture).ExportAsync();
+        Assert.Null(withoutAccounting.Sessions);
+
+        var withAccounting = await Service(fixture).ExportAsync(includeAccounting: true);
+        var session = Assert.Single(withAccounting.Sessions!);
+        Assert.Equal("session-1", session.SessionId);
+    }
+
+    [Fact]
+    public async Task AccountingIsRestoredOnlyWhenTheImportOptsIn()
+    {
+        BackupDocument document;
+        await using (var source = await SeededAsync())
+        {
+            await SeedSessionAsync(source, "session-1", "44:4f:8e:c8:9a:ac", bytesIn: 4096);
+            // Round-trip through YAML so the session timestamps survive serialisation.
+            document = BackupService.Parse(Service(source).Serialize(
+                await Service(source).ExportAsync(includeAccounting: true), BackupFormat.Yaml));
+        }
+
+        // Default import: config only, no sessions.
+        await using (var target = await TestDatabase.CreateAsync())
+        {
+            var result = await Service(target).ImportAsync(document, new ImportOptions());
+            Assert.Equal(0, result.SessionsImported);
+            Assert.Empty(await target.Db.AccountingSessions.ToListAsync());
+        }
+
+        // Opt in: sessions restored and relinked to the imported client.
+        await using (var target = await TestDatabase.CreateAsync())
+        {
+            var result = await Service(target).ImportAsync(document, new ImportOptions { ImportAccounting = true });
+            Assert.Equal(1, result.SessionsImported);
+
+            var session = await target.Db.AccountingSessions.SingleAsync();
+            Assert.Equal("session-1", session.SessionId);
+            Assert.Equal(4096, session.BytesIn);
+            Assert.NotNull(session.ClientDeviceId);   // relinked to the client imported from the same file
+        }
+    }
+
+    [Fact]
+    public async Task ReimportingAccountingDoesNotDuplicateSessions()
+    {
+        await using var source = await SeededAsync();
+        await SeedSessionAsync(source, "session-1", "44:4f:8e:c8:9a:ac");
+        var document = await Service(source).ExportAsync(includeAccounting: true);
+
+        await Service(source).ImportAsync(document, new ImportOptions { ImportAccounting = true });
+        await Service(source).ImportAsync(document, new ImportOptions { ImportAccounting = true });
+
+        // Keyed on (NAS address, session id), so the second import updates rather than duplicates.
+        Assert.Equal(1, await source.Db.AccountingSessions.CountAsync(s => s.SessionId == "session-1"));
+    }
+
+    [Fact]
+    public async Task AnSsidRuleForAMissingVlanIsSkippedWithAWarning()
+    {
+        await using var fixture = await TestDatabase.CreateAsync();
+        var document = new BackupDocument
+        {
+            Vlans = [new BackupVlan { Name = "Default", VlanId = 10 }],
+            SsidRules = [new BackupSsidRule { Ssid = "Guest", VlanId = 999 }]
+        };
+
+        var result = await Service(fixture).ImportAsync(document, new ImportOptions());
+
+        Assert.Equal(0, result.SsidRulesAdded);
+        Assert.Contains(result.Warnings, w => w.Contains("Guest") && w.Contains("999"));
+        Assert.Empty(await fixture.Db.SsidVlanRules.ToListAsync());
+    }
+
+    private static async Task SeedSessionAsync(TestDatabase fixture, string sessionId, string client, long bytesIn = 0)
+    {
+        fixture.Db.AccountingSessions.Add(new AccountingSession
+        {
+            SessionId = sessionId,
+            ClientName = client,
+            NasName = "unifi",
+            NasIpAddress = "192.168.1.1",
+            Ssid = "IoT",
+            NasIdentifier = "AP-Bedroom",
+            NasPortType = "Wireless 802.11",
+            IsActive = true,
+            BytesIn = bytesIn
+        });
+        await fixture.Db.SaveChangesAsync();
     }
 
     [Fact]

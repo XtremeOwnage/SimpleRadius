@@ -35,7 +35,7 @@ public class BackupService
         _logger = logger;
     }
 
-    public async Task<BackupDocument> ExportAsync(CancellationToken cancellationToken = default)
+    public async Task<BackupDocument> ExportAsync(bool includeAccounting = false, CancellationToken cancellationToken = default)
     {
         var vlans = await _db.VlanDefinitions
             .AsNoTracking()
@@ -78,6 +78,51 @@ public class BackupService
             })
             .ToListAsync(cancellationToken);
 
+        var ssidRules = await _db.SsidVlanRules
+            .AsNoTracking()
+            .Include(r => r.VlanDefinition)
+            .OrderBy(r => r.Ssid)
+            .Select(r => new BackupSsidRule
+            {
+                Ssid = r.Ssid,
+                VlanId = r.VlanDefinition!.VlanId,
+                Notes = r.Notes
+            })
+            .ToListAsync(cancellationToken);
+
+        List<BackupSession>? sessions = null;
+        if (includeAccounting)
+        {
+            sessions = await _db.AccountingSessions
+                .AsNoTracking()
+                .OrderBy(s => s.StartTime)
+                .Select(s => new BackupSession
+                {
+                    SessionId = s.SessionId,
+                    ClientName = s.ClientName,
+                    CallingStationId = s.CallingStationId,
+                    CalledStationId = s.CalledStationId,
+                    Ssid = s.Ssid,
+                    NasIdentifier = s.NasIdentifier,
+                    NasPortType = s.NasPortType,
+                    NasName = s.NasName,
+                    NasIpAddress = s.NasIpAddress,
+                    VlanId = s.VlanId,
+                    AcctStatusType = s.AcctStatusType,
+                    IsActive = s.IsActive,
+                    BytesIn = s.BytesIn,
+                    BytesOut = s.BytesOut,
+                    PacketsIn = s.PacketsIn,
+                    PacketsOut = s.PacketsOut,
+                    SessionSeconds = s.SessionSeconds,
+                    TerminateCause = s.TerminateCause,
+                    StartTime = s.StartTime,
+                    LastUpdateTime = s.LastUpdateTime,
+                    StopTime = s.StopTime
+                })
+                .ToListAsync(cancellationToken);
+        }
+
         var settings = await _settings.GetReadOnlyAsync(cancellationToken);
 
         return new BackupDocument
@@ -85,6 +130,8 @@ public class BackupService
             Vlans = vlans,
             Clients = clients,
             NetworkAccessServers = nas,
+            SsidRules = ssidRules,
+            Sessions = sessions,
             Settings = new BackupSettings
             {
                 DefaultVlanId = settings.DefaultVlanId,
@@ -265,6 +312,92 @@ public class BackupService
                     VlanDefinition = vlan
                 });
                 result.ClientsAdded++;
+            }
+        }
+
+        // SSID rules, keyed on the SSID. The referenced VLAN must exist — an SSID mapped to a missing
+        // VLAN is meaningless, so it is skipped rather than pointed at a fallback.
+        await _db.SaveChangesAsync(cancellationToken);
+        var rulesBySsid = await _db.SsidVlanRules.ToDictionaryAsync(r => r.Ssid, cancellationToken);
+        foreach (var incoming in document.SsidRules)
+        {
+            var ssid = incoming.Ssid?.Trim();
+            if (string.IsNullOrWhiteSpace(ssid))
+            {
+                result.Warnings.Add("Skipped an SSID rule with no SSID.");
+                continue;
+            }
+
+            if (!vlansByNumber.TryGetValue(incoming.VlanId, out var vlan))
+            {
+                result.Warnings.Add($"Skipped SSID rule '{ssid}': VLAN {incoming.VlanId} is not defined.");
+                continue;
+            }
+
+            if (rulesBySsid.TryGetValue(ssid, out var existing))
+            {
+                existing.VlanDefinition = vlan;
+                existing.Notes = incoming.Notes;
+                existing.UpdatedUtc = DateTime.UtcNow;
+                result.SsidRulesUpdated++;
+            }
+            else
+            {
+                _db.SsidVlanRules.Add(new SsidVlanRule
+                {
+                    Ssid = ssid,
+                    VlanDefinition = vlan,
+                    Notes = incoming.Notes
+                });
+                result.SsidRulesAdded++;
+            }
+        }
+
+        // Accounting sessions, opt-in and keyed on (NAS address, session id). Restoring is upsert too, so
+        // re-importing the same file does not duplicate history.
+        if (options.ImportAccounting && document.Sessions is { Count: > 0 } incomingSessions)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+            var clientsForSessions = await _db.ClientDevices.ToDictionaryAsync(c => c.Name, c => c.Id, cancellationToken);
+            var existingSessions = await _db.AccountingSessions
+                .ToDictionaryAsync(s => (s.NasIpAddress, s.SessionId), cancellationToken);
+
+            foreach (var incoming in incomingSessions)
+            {
+                if (string.IsNullOrWhiteSpace(incoming.SessionId) || string.IsNullOrWhiteSpace(incoming.NasIpAddress))
+                {
+                    result.Warnings.Add("Skipped an accounting session with no session id or NAS address.");
+                    continue;
+                }
+
+                var session = existingSessions.GetValueOrDefault((incoming.NasIpAddress, incoming.SessionId));
+                if (session is null)
+                {
+                    session = new AccountingSession { SessionId = incoming.SessionId, NasIpAddress = incoming.NasIpAddress };
+                    _db.AccountingSessions.Add(session);
+                }
+
+                session.ClientName = incoming.ClientName;
+                session.ClientDeviceId = clientsForSessions.TryGetValue(incoming.ClientName, out var cid) ? cid : null;
+                session.CallingStationId = incoming.CallingStationId;
+                session.CalledStationId = incoming.CalledStationId;
+                session.Ssid = incoming.Ssid;
+                session.NasIdentifier = incoming.NasIdentifier;
+                session.NasPortType = incoming.NasPortType;
+                session.NasName = incoming.NasName;
+                session.VlanId = incoming.VlanId;
+                session.AcctStatusType = incoming.AcctStatusType;
+                session.IsActive = incoming.IsActive;
+                session.BytesIn = incoming.BytesIn;
+                session.BytesOut = incoming.BytesOut;
+                session.PacketsIn = incoming.PacketsIn;
+                session.PacketsOut = incoming.PacketsOut;
+                session.SessionSeconds = incoming.SessionSeconds;
+                session.TerminateCause = incoming.TerminateCause;
+                session.StartTime = incoming.StartTime;
+                session.LastUpdateTime = incoming.LastUpdateTime;
+                session.StopTime = incoming.StopTime;
+                result.SessionsImported++;
             }
         }
 

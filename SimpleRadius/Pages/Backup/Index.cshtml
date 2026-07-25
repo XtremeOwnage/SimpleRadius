@@ -12,13 +12,21 @@
             <div class="card-header">Export</div>
             <div class="card-body">
                 <p class="text-muted">
-                    Download the full configuration — VLANs, clients, network access servers and settings —
-                    as a single file. Keep it as a backup, or import it into another instance.
+                    Download the full configuration — VLANs, clients, network access servers, SSID rules
+                    and settings — as a single file. Keep it as a backup, or import it into another instance.
                 </p>
-                <div class="d-flex gap-2">
-                    <a class="btn btn-primary" asp-page-handler="Export" asp-route-format="json">Download JSON</a>
-                    <a class="btn btn-primary" asp-page-handler="Export" asp-route-format="yaml">Download YAML</a>
-                </div>
+                <form method="get">
+                    <input type="hidden" name="handler" value="Export" />
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="accounting" name="accounting" value="true" />
+                        <label class="form-check-label" for="accounting">Include accounting sessions</label>
+                        <div class="form-text">Off by default. The session history can be large and is separate from the configuration.</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" name="format" value="json" class="btn btn-primary">Download JSON</button>
+                        <button type="submit" name="format" value="yaml" class="btn btn-primary">Download YAML</button>
+                    </div>
+                </form>
                 <div class="alert alert-warning mt-3 mb-0 small">
                     The file contains your NAS <strong>shared secrets in plaintext</strong>. Store it
                     somewhere safe, as you would a password.
@@ -32,8 +40,8 @@
             <div class="card-header">Import</div>
             <div class="card-body">
                 <p class="text-muted">
-                    Load a JSON or YAML file. Records are matched by VLAN number, client identity and NAS
-                    address: existing ones are updated, new ones are added. Nothing is deleted.
+                    Load a JSON or YAML file. Records are matched by VLAN number, client identity, NAS
+                    address and SSID: existing ones are updated, new ones are added. Nothing is deleted.
                 </p>
                 <form method="post" asp-page-handler="Import" enctype="multipart/form-data">
                     <div class="mb-3">
@@ -48,6 +56,13 @@
                             settings overwrite the current ones.
                         </div>
                     </div>
+                    <div class="form-check mb-3">
+                        <input asp-for="ImportAccounting" class="form-check-input" />
+                        <label asp-for="ImportAccounting" class="form-check-label">Also import accounting sessions</label>
+                        <div class="form-text">
+                            Off by default, and only does anything if the file was exported with accounting.
+                        </div>
+                    </div>
                     <button type="submit" class="btn btn-primary"
                             onclick="return confirm('Import this file? Existing records with the same key are overwritten.');">
                         Import
@@ -60,6 +75,6 @@
 
 <p class="text-muted small mt-4">
     The format is stable and human-editable: a client references its VLAN by number, so you can hand-write
-    or template a configuration and import it. Internal ids, timestamps and accounting history are not
-    included.
+    or template a configuration and import it. Internal ids are not included; accounting history is only
+    present when you tick the box above.
 </p>

@@ -15,11 +15,12 @@ All notable changes are recorded here. The format follows
   name too.
 - **VLAN groups**: an optional group label (e.g. LAN, IOT) with a grouped view on the VLANs page, and a
   new sortable Group column in the flat view.
-- **Import / export** of the configuration — VLANs, clients, network access servers and settings — as
-  JSON or YAML, on a new Backup page. Import is an upsert keyed on VLAN number, client identity and NAS
-  address, so a file both restores onto an empty instance and merges into a populated one; server
-  settings are only applied when explicitly requested. The format is human-editable, so a configuration
-  can be hand-written or templated.
+- **Import / export** of the configuration — VLANs, clients, network access servers, SSID rules and
+  settings — as JSON or YAML, on a new Backup page. Import is an upsert keyed on VLAN number, client
+  identity, NAS address and SSID, so a file both restores onto an empty instance and merges into a
+  populated one; server settings are only applied when explicitly requested. Accounting session history
+  can optionally be included in an export and restored on import (both opt-in), and re-importing it does
+  not duplicate. The format is human-editable, so a configuration can be hand-written or templated.
 - **Default VLAN by SSID**: optional rules mapping an SSID (from Called-Station-Id) to a VLAN, on a new
   page linked from VLANs. A device seen for the first time on a matching SSID is placed on that VLAN
   instead of the global default; a device that already has its own VLAN keeps it.
