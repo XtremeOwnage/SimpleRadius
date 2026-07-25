@@ -37,6 +37,9 @@ public class IndexModel : PageModel
 
     public Dictionary<int, int> ClientCounts { get; private set; } = [];
 
+    /// <summary>VLAN id to the SSIDs it is the default for, so the list can flag them.</summary>
+    public Dictionary<int, List<string>> SsidDefaultsByVlan { get; private set; } = [];
+
     public int DefaultVlanId { get; private set; }
 
     /// <summary>True when any VLAN has a group, so the grouped-view toggle is worth showing.</summary>
@@ -143,5 +146,15 @@ public class IndexModel : PageModel
             .GroupBy(c => c.VlanDefinitionId)
             .Select(g => new { VlanDefinitionId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.VlanDefinitionId, g => g.Count);
+
+        var ssidRules = await _db.SsidVlanRules
+            .AsNoTracking()
+            .OrderBy(r => r.Ssid)
+            .Select(r => new { r.VlanDefinitionId, r.Ssid })
+            .ToListAsync();
+
+        SsidDefaultsByVlan = ssidRules
+            .GroupBy(r => r.VlanDefinitionId)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.Ssid).ToList());
     }
 }

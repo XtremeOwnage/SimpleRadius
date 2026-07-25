@@ -188,6 +188,22 @@ public class SsidVlanTests
     }
 
     [Fact]
+    public async Task VlanPageFlagsWhichSsidsAVlanIsTheDefaultFor()
+    {
+        await using var fixture = await FixtureAsync();
+        var iot = await fixture.AddVlanAsync("V_IOT_Generic", 306);
+        var guest = await fixture.AddVlanAsync("V_GUEST", 204);
+        await AddRuleAsync(fixture, "IoT", iot);
+        await AddRuleAsync(fixture, "Cameras", iot);   // same VLAN, two SSIDs
+
+        var page = new SimpleRadius.Pages.VlanDefinitions.IndexModel(fixture.Db, new SettingsService(fixture.Db));
+        await page.OnGetAsync();
+
+        Assert.Equal(["Cameras", "IoT"], page.SsidDefaultsByVlan[iot.Id]);   // sorted
+        Assert.False(page.SsidDefaultsByVlan.ContainsKey(guest.Id));         // no rule → not flagged
+    }
+
+    [Fact]
     public async Task SsidRulesPageAddsAndListsRules()
     {
         await using var fixture = await FixtureAsync();

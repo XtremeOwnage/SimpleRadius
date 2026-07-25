@@ -20,6 +20,11 @@
                     <span class="text-warning" title="Default VLAN for new devices">★</span>
                 }
                 @vlan.Name
+                @if (Model.SsidDefaultsByVlan.TryGetValue(vlan.Id, out var ssids))
+                {
+                    <a class="text-info text-decoration-none ms-1" asp-page="/SsidRules/Index"
+                       title="Default VLAN for SSID: @string.Join(", ", ssids)">★</a>
+                }
                 @if (!string.IsNullOrWhiteSpace(vlan.Notes))
                 {
                     <span class="ms-1 text-muted" title="Has notes">&#9998;</span>
@@ -53,8 +58,8 @@
         <a class="small" asp-page="/SsidRules/Index">Default VLAN by SSID</a>
         <a class="small" asp-page="/Backup/Index">Import / export</a>
         <span class="text-muted small">
-            <span class="text-warning">★</span> default VLAN
-            (<a asp-page="/Settings/Index">change</a>)
+            <span class="text-warning">★</span> global default (<a asp-page="/Settings/Index">change</a>)
+            · <span class="text-info">★</span> SSID default
         </span>
     </div>
 </div>
